@@ -1,0 +1,398 @@
+---
+title: "data-cleaning"
+author: "Kelsey Gonzalez"
+date: "10/21/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+pacman::p_load(tidyverse, vroom, readxl, here, tidycensus, zoo)
+
+# county to state
+count_to_state <- read_csv("https://raw.githubusercontent.com/kjhealy/fips-codes/master/county_fips_master.csv") %>% 
+  mutate(FIPS = str_pad(fips, 5, pad = "0")) %>% 
+  select(FIPS, state_code = state_abbr)
+
+# dropping american samoa, puerto rico, etc
+FIPS_to_drop <- c("60010","60020","60020","60020","60050","66010","72001","72003","72005","72007","72009","72011","72013","72015","72017","72019","72021","72023","72025","72027","72029","72031","72033","72035","72037","72041","72043","72045","72047","72049","72051","72053","72054","72055","72057","72059","72061","72063","72065","72067","72071","72073","72075","72077","72079","72081","72083","72085","72087","72089","72091","72093","72095","72097","72099","72101","72103","72105","72107","72109","72111","72113","72115","72117","72119","72121","72123","72125","72127","72129","72131","72133","72135","72137","72139","72141","72143","72145","72147","72149","72151","72153","69100","69110","72039","72069","78010","78020","78030")
+
+```
+
+# time unchanging
+```{r sci}
+# load facebook social connectedness data
+sci <- readr::read_tsv(here('data', 'social-connectedness', 'county_county.tsv') ) %>% 
+  mutate(scaled_sci = scaled_sci/1000000000) 
+  
+    # yes, it's each US county to each other. 
+    # sci %>% pivot_wider(id_cols = user_loc, names_from = fr_loc, values_from = scaled_sci)
+    
+    # The publicly available measures of the Social Connectedness Index are scaled
+    # within each dataset to have a maximum value of 1,000,000,000 and a minimum
+    # value of 1. As a result, the public release version of the social
+    # connectedness index i,j measures the relative probability of a Facebook
+    # friendship link between a given Facebook user in location i and a given user
+    # in location j. Put differently, if this measure is twice as large, a given
+    # Facebook user in location i is about twice as likely to be connected with a
+    # given Facebook user in location j. We also add a small amount of random noise
+    # and round the Social Connectedness Index to the nearest integer, to ensure
+    # that no single individual or friendship link can be identified from the data.
+
+sci_self <- sci %>% 
+  filter(user_loc == fr_loc,
+         !(user_loc %in% FIPS_to_drop)) %>% 
+  select(FIPS = user_loc, sci_prob_self = scaled_sci)
+
+    # ggplot(sci_self, aes(x = sci_prob_self))+geom_density()
+
+```
+```{r acs}
+# load ACS demographic data
+# tidycensus::census_api_key("f935b09a686615286d59db38597c6730e7079760", overwrite = TRUE, install = TRUE)
+
+# v19 <- load_variables(2019, "acs5", cache = TRUE)
+# v19_p <- load_variables(2019, "acs5/profile", cache = TRUE)
+# v19_s <- load_variables(2019, "acs5/subject", cache = TRUE)
+
+data_2019 <- get_acs(geography = "county", 
+        variables = c(total_population =	"B02001_001",
+                      white =	"B02001_002",
+                      black =	"B02001_003",
+                      asian = "B02001_005",
+                      native = "B02001_006",
+                      other = "B02001_007",
+                      two_plus = "B02001_008",
+                      hispanic = "B03001_003",
+                      non_hispanic = "B03001_002",
+                      Bachelor_higher_25pl = "S1501_C01_015",
+                      pop_25pl = "S1501_C01_006",
+                      perc_65_over = "S0101_C02_030",
+                      income_med = "DP03_0062",
+                      unemployment_5yr = "S2301_C04_021"),
+        # still can't find density =	SE_A00002_002,
+        year = 2019)
+
+data_2019_wide <- data_2019 %>% 
+  mutate(state = str_split_fixed(NAME, ", ", 2)[,2],
+         county = str_split_fixed(NAME, ", ", 2)[,1]) %>% 
+  select(-moe, -NAME, fips = GEOID) %>% 
+  pivot_wider(id_cols = c("fips", "state", "county"), 
+              names_from = "variable",
+              values_from = "estimate") 
+
+ACS <- data_2019_wide %>% 
+  mutate(p_white =	white/total_population,
+         p_black =	black/total_population,
+         p_hispanic = hispanic/total_population,
+         p_college = Bachelor_higher_25pl/pop_25pl) %>% 
+  dplyr::select(state, county, FIPS = fips, p_white, p_black, p_hispanic, p_college, 
+                perc_65_over, population = total_population, 
+                # density, 
+                unemployment_5yr, 
+                income_med) 
+
+rm(list = c("data_2019", "data_2019_wide"))
+
+
+```
+```{r governors}
+# from https://github.com/CivilServiceUSA/us-governors
+
+gov_2020 <- read_csv("https://raw.githubusercontent.com/CivilServiceUSA/us-governors/ef4a843811353837a5cc62bbd18a901fc651552f/source/us-governors.csv") %>% 
+  mutate(rep_gov_2020 = ifelse(party == 'republican', 1, 0)) %>% 
+  select(state, state_code, rep_gov_2020)
+gov_2021 <- read_csv("https://raw.githubusercontent.com/CivilServiceUSA/us-governors/c537b0d54316eea09eb4b8918241d70338c25d0a/us-governors/data/us-governors.csv") %>% 
+  mutate(rep_gov_2021 = ifelse(party == 'republican', 1, 0)) %>% 
+  select(state = state_name, state_code, rep_gov_2021)
+
+gov <- gov_2020 %>% 
+  full_join(gov_2021, by = c("state", "state_code"))
+
+rm(list = c("gov_2021", "gov_2020"))
+```
+```{r evangelical_county}
+evangelical_county <- read_excel(here("data", "U.S. Religion Census Religious Congregations and Membership Study, 2010 (County File).XLSX")) %>% 
+  select(FIPS_num = FIPS, FIPS_state = STCODE, FIPS_county = CNTYCODE,
+         evangelical_county = EVANRATE) %>% 
+  mutate(FIPS = str_pad(FIPS_num, 5, pad = "0"),
+         evangelical_county = evangelical_county / 1000) %>% 
+  select(FIPS, evangelical_county)
+```
+```{r presidential}
+
+votes_2016 <- read_csv("https://raw.githubusercontent.com/tonmcg/US_County_Level_Election_Results_08-20/master/2016_US_County_Level_Presidential_Results.csv",
+                       col_types = "dddddddcccc") %>% 
+  mutate(FIPS = str_pad(combined_fips, 5, pad = "0")) %>% 
+  select(FIPS, trump_votes_2016 = per_gop)
+
+votes_2020 <- read_csv("https://raw.githubusercontent.com/tonmcg/US_County_Level_Election_Results_08-20/master/2020_US_County_Level_Presidential_Results.csv") %>% 
+  select(FIPS = county_fips, trump_votes_2020 = per_gop)
+
+votes <- votes_2016 %>% 
+  right_join(votes_2020, by = "FIPS")
+# this drops alaska, which we don't have 2020 voting data for (yet)
+
+rm(list = c("votes_2016", "votes_2020"))
+
+```
+```{r merge-time-invariant}
+time_constant <- sci_self %>% 
+  inner_join(count_to_state, by = "FIPS") %>% 
+  left_join(ACS, by = "FIPS") %>% 
+  inner_join(votes, by = "FIPS") %>% 
+  left_join(gov, by = c("state_code", "state")) %>% 
+  inner_join(evangelical_county, by = "FIPS") # investigage why some missing cases here
+
+
+rm(list = c("sci_self", "count_to_state", "ACS", "votes", "gov", "evangelical_county"))
+```
+
+# time varying
+```{r laus}
+# Laus unemployment rates
+# from https://www.bls.gov/web/metro/laucntycur14.txt
+LAUS_20 <- vroom(here("data","LAUS.csv")) %>% 
+  mutate(FIPS_state = as.numeric(FIPS_state),
+         FIPS_county = as.numeric(FIPS_county),
+         FIPS_state = str_pad(FIPS_state, 2, pad = "0"),
+         FIPS_county = str_pad(FIPS_county, 3, pad = "0"),
+         FIPS = paste0(FIPS_state, FIPS_county),
+         period = lubridate::mdy(period) )  %>% 
+  select(FIPS, period, unemployed_rate = unemployment_rate)
+
+# THIS IS BROKEN as a csv AND IT WON'T LOAD AND IDK WHY so now it's just an excel :shrug:
+LAUS_21 <- read_excel(here("data","LAUS_2021.xlsx")) %>% 
+  mutate(FIPS_state = str_pad(fips_state, 2, pad = "0"),
+         FIPS_county = str_pad(fips_county, 3, pad = "0"),
+         FIPS = paste0(FIPS_state, FIPS_county),
+         period = lubridate::date(period)) %>% 
+  select(FIPS, period, unemployed_rate )
+
+LAUS <- bind_rows(LAUS_20, LAUS_21) %>% 
+  mutate(date_month = lubridate::month(period),
+         date_year = lubridate::year(period)) %>% 
+  select(-period)
+
+rm(list = c("LAUS_20", "LAUS_21"))
+```
+```{r covid-rate}
+# Covid rates control , this is not super reliable early on
+    # https://business-science.github.io/timetk/articles/TK07_Time_Series_Data_Wrangling.html
+
+covid_rate <- vroom(here("data", "covid-rates", "us-counties-2020.csv")) %>% 
+  mutate(FIPS = str_split_fixed(geoid, "-", 2)[,2]) %>% 
+  select(FIPS, date, case_rate = cases_avg_per_100k) 
+
+# covid_rate %>% 
+#   filter(FIPS %in% c("53061", "06059", "17031")) %>% 
+#   group_by(FIPS) %>% 
+#   mutate(case_rate = tidyr::replace_na(case_rate, 0),
+#          case_rate_30 = zoo::rollmean(case_rate, k = 30, fill = NA),
+#          case_rate_7 = zoo::rollmean(case_rate, k = 7, fill = NA)) %>% 
+#   pivot_longer(cols = c(case_rate_30, case_rate_7, case_rate)) %>%
+#   ggplot(aes(x=date, y = value,color = name, group = name)) + geom_line() + geom_point() +facet_wrap(~ FIPS)
+
+
+covid_rate <- covid_rate %>%
+    group_by(FIPS) %>%
+    mutate(case_rate = tidyr::replace_na(case_rate, 0),
+           case_rate = zoo::rollmean(case_rate, k = 7, fill = NA),
+           wday = lubridate::wday(date, label=TRUE)) %>% 
+  filter(wday == "Mon" ) %>% 
+  select(FIPS, date, case_rate)
+```
+ 
+```{r trends}
+# # bringing in DMA fox new search from
+# # https://dataverse.harvard.edu/file.xhtml?persistentId=doi:10.7910/DVN/IVXEHT/A56RIW&version=7.4
+# dma <- read_csv(here("masks", "data", "county_dma.csv")) %>% 
+#   mutate(FIPS_state = case_when(STATEFP < 10 ~ paste0("0", as.character(STATEFP)),
+#                                 between(STATEFP, 10, 100) ~ as.character(STATEFP)),
+#          FIPS_county = case_when(CNTYFP < 10 ~ paste0("00", as.character(CNTYFP)),
+#                                  between(CNTYFP, 10, 99) ~ paste0("0", as.character(CNTYFP)),
+#                                  TRUE ~ as.character(CNTYFP)),
+#          FIPS = paste0(FIPS_state, FIPS_county)) %>% 
+#   select(FIPS, DMA)
+# dma_key <- read_csv(here("masks", "data","google_dma_key.csv"))
+# 
+# dma <- dma %>% 
+#   full_join(dma_key)
+# 
+# media <- read_csv(here("media","google_media_trends_region.csv")) %>% 
+#   mutate(DMA_google = str_to_upper(DMA_google),
+#          DMA_google = str_replace_all(DMA_google,"-", " - "),
+#          DMA_google = str_replace_all(DMA_google,",", ""),
+#          DMA_google = str_replace_all(DMA_google,"\\s(\\w{2})\\b", " \\(\\1\\)")) %>% 
+#   full_join(dma, by = "DMA_google") %>% 
+#   relocate(DMA, DMA_google) %>% 
+#   janitor::clean_names() %>% 
+#   rename(FIPS = fips)
+
+```
+
+
+
+# Movement
+
+## Dependent variable
+```{r}
+google <- vroom(here("data","covid-mobility", "2020_US_Region_Mobility_Report.csv"))  %>% 
+  drop_na(census_fips_code) %>% 
+  select(date, FIPS = census_fips_code, SAH = residential_percent_change_from_baseline) %>% 
+  filter(!is.na(FIPS)) %>%
+  group_by(FIPS) %>%
+  mutate(SAH = tidyr::replace_na(SAH, 0),
+         SAH = zoo::rollmean(SAH, k = 7, fill = NA),
+         wday = lubridate::wday(date, label=TRUE)) %>% 
+  filter(wday == "Mon",
+         !is.na(SAH)) %>% 
+  select(FIPS, date, SAH) %>% 
+  ungroup()
+```
+
+## independent variable movement_signal   
+```{r}
+# create a signal direction variable where lagged by 1 week and weighted by strength / likelihood of connection model average signal against time in residence  
+
+merge_alter_movement <- function(data) {
+  left_join(x = data, 
+            y = google, 
+            by = c(c("fr_loc" = "FIPS"),
+                   c("date_lag" = "date")))
+}
+weight_avg_move <- function(df) weighted.mean(df$SAH, w = df$scaled_sci, na.rm = TRUE)
+
+overall_average_SAH <- google %>% 
+  group_by(date) %>% 
+  summarize(SAH_mean = mean(SAH, na.rm = TRUE))
+
+  
+google <-
+  google %>%                                                # movement data
+  
+  # take a sample for testing
+  filter(FIPS %in% c("53061", "06059", "17031", "39159", "49017", "25013")) %>%
+  group_by(date) %>%                                          # group by date
+  mutate(date_lag = date - 7) %>% 
+  left_join(sci, by = c("FIPS" = "user_loc")) %>%             # merge in sci
+  nest(data = c(date_lag, fr_loc, scaled_sci)) %>% 
+  mutate(data = map(data, merge_alter_movement)) %>%    # merge in alter's lagged movement
+  mutate(movement_signal = map_dbl(data, weight_avg_move),      # take weighted mean
+         .keep = "unused")  %>% 
+  left_join(overall_average_SAH, by = "date") %>% 
+  mutate(date_month = lubridate::month(date),
+         date_year = lubridate::year(date))
+    
+google  %>% 
+  pivot_longer(cols = c(SAH, movement_signal, SAH_mean)) %>% 
+  ggplot(aes(x = date, y = value, color = name)) + geom_line() + facet_wrap(~FIPS) + theme_classic()
+
+
+rm(list = c("overall_average_SAH"))
+```
+
+
+## master data set
+merge in time invarying
+```{r google_merge_1}
+google <- google %>% 
+  left_join(time_constant, by = "FIPS")
+```
+merge in time varying
+```{r google_merge_2}
+google <- google %>% 
+  left_join(LAUS, by = c("FIPS", "date_month", "date_year"))
+```
+
+## save movement
+```{r google_save}
+write_csv(google, here("data", "google_movement_main.csv"))
+rm(list = c("google"))
+```
+
+
+
+
+
+# Vaccine
+## Dependent variable
+```{r}
+vacc <- vroom(here("data","vaccination-rates", "COVID-19_Vaccinations_in_the_United_States_County.csv")) %>% 
+  mutate(date = lubridate::mdy(Date, quiet = TRUE)) %>% 
+  select(FIPS, date, vacc_rate = Series_Complete_Pop_Pct) 
+
+    # vacc %>%
+    #   filter(FIPS == "06047") %>%
+    #   ggplot(aes(x = date, y = vacc_rate)) + geom_line()
+
+vacc <- vacc %>% 
+  group_by(FIPS) %>%
+  mutate(vacc_rate_2 = zoo::na.approx(vacc_rate, na.rm = TRUE),
+         vacc_rate = zoo::rollmean(vacc_rate, k = 7, fill = NA),
+         wday = lubridate::wday(date, label=TRUE)) %>% 
+  filter(wday == "Mon",
+         !is.na(vacc_rate),
+         FIPS != "UNK") %>% 
+  select(FIPS, date, vacc_rate)
+```
+
+## independent variable weighted_mean_vacc_signal   
+```{r}
+# weighted_mean_movement_signal   
+weight_avg_vacc <- function(df) weighted.mean(df$vacc_rate, w = df$scaled_sci, na.rm = TRUE)
+merge_alter_vacc <- function(data) {
+  left_join(x = data, 
+            y = vacc, 
+            by = c(c("fr_loc" = "FIPS"), 
+                   c("date_lag" = "date")))
+}
+
+overall_average_vacc <- vacc %>% 
+  group_by(date) %>% 
+  summarize(vacc_mean = mean(vacc_rate, na.rm = TRUE))
+
+vacc <-  vacc %>%                                         # vacc data
+  # filter(FIPS %in% c("53061", "06059", "17031", "39159", "49017", "25013")) %>%
+  group_by(date) %>%                                          # group by date
+  mutate(date_lag = date - 7) %>% 
+  left_join(sci, by = c("FIPS" = "user_loc")) %>%             # merge in sci
+  nest(data = c(date_lag, fr_loc, scaled_sci)) %>% 
+  mutate(data = map(data, merge_alter_vacc)) %>%              # merge in alter's lagged movement
+  mutate(vacc_signal = map_dbl(data, weight_avg_vacc),# take weighted mean
+         .keep = "unused")  %>% 
+  left_join(overall_average_vacc, by = "date") %>% 
+  mutate(date_month = lubridate::month(date),
+         date_year = lubridate::year(date))
+
+    # vacc %>% 
+      # filter(FIPS %in% c("53061", "06059", "17031", "39159", "49017", "25013")) %>%
+      # pivot_longer(cols = c(vacc_rate, vacc_signal, vacc_mean)) %>% 
+      # ggplot(aes(x = date, y = value, color = name)) + geom_line() + facet_wrap(~FIPS) + theme_classic()
+
+rm(list = c("overall_average_vacc", "sci"))
+
+
+```
+
+## master data set
+merge in time invarying
+```{r vacc_merge_1}
+vacc <- vacc %>% 
+  left_join(time_constant, by = "FIPS")
+```
+merge in time varying
+```{r vacc_merge_2}
+vacc <- vacc %>% 
+  left_join(LAUS, by = c("FIPS", "date_month", "date_year"))
+# need trends data here 
+```
+
+## save vacc
+```{r vacc_save}
+write_csv(vacc, here("data", "vacc_main.csv"))
+rm(list = c("overall_average_vacc", "time_constant", "LAUS", "vacc"))
+
+```
