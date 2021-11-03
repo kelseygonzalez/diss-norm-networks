@@ -1,0 +1,383 @@
+---
+title: "The Formation of Behavioral Norms - Modeling"
+author: "Kelsey Gonzalez"
+date: "10/19/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, 
+                      message = FALSE,
+                      warning = FALSE)
+pacman::p_load(tidyverse, here, lme4, lmerTest, nlme, ggeffects, plm)
+
+```
+
+# mobility
+
+## Clean data
+
+```{r}
+# source("data-cleaning.R")
+google <- read_csv(here("data", "google_movement_main.csv"))  %>% 
+  drop_na() %>% 
+  select(FIPS, date, vacc_rate, sci_prob_self, movement_signal, movement_assor, 
+         case_rate, p_white, p_black, p_college, p_hispanic,
+         perc_65_over, unemployed_rate, income_med, 
+             trump_votes_2016, rep_gov_2020, evangelical_county) %>% 
+  mutate(across(sci_prob_self:evangelical_county, ~ scale(., center=TRUE, scale=TRUE)),
+         week_num = as.numeric((date - lubridate::ymd("2020-03-02")) / 7))
+```
+
+## Hypothesis 1
+Relatively higher local rates of infection will lead to increased time spent in residence and increase vaccination uptake
+
+i.e. model local infection against time in residence
+```{r}
+
+# basic GLM
+fit.glm<-glm(vacc_rate~week_num + case_rate + p_white +
+             p_college + perc_65_over + unemployed_rate + income_med + 
+             trump_votes_2016 + rep_gov_2020 + evangelical_county, data=vacc)
+summary(fit.glm)
+
+#random intercept model for individual county differences
+fit.ri<-lmer(vacc_rate~week_num + case_rate + p_white +
+             p_college + perc_65_over + unemployed_rate + income_med + 
+             trump_votes_2016 + rep_gov_2020 + evangelical_county +
+             (1|FIPS), data=vacc)
+summary(fit.ri)
+
+#individual trajectory model with random slope for time
+fit.traj<-lmer(vacc_rate~week_num + case_rate + p_white 
+             p_college + perc_65_over + unemployed_rate + income_med + 
+             trump_votes_2016 + rep_gov_2020 + evangelical_county +
+             (week_num|FIPS), data=vacc)
+summary(fit.traj)
+
+#curvilinear trajectory model with random nonlinear time
+fit.4<-lmer(vacc_rate~week_num + case_rate + p_white +
+             p_college + perc_65_over + unemployed_rate + income_med + 
+             trump_votes_2016 + rep_gov_2020 + evangelical_county +
+            I(week_num^2)+(week_num+I(week_num^2)|FIPS), data=vacc)
+summary(fit.4)
+
+#individual trajectory model with fixed effects for race and different population
+#trajectories for each race
+fit.5<-lmer(vacc_rate ~ week_num * (case_rate + p_white +
+             p_college + perc_65_over + unemployed_rate + income_med + 
+             trump_votes_2016 + rep_gov_2020 + evangelical_county) +
+            (week_num|FIPS), data=vacc)
+summary(fit.5)
+
+
+model.c <- lme(vacc_rate ~ case_rate + week_num , data=vacc, random= ~ week_num | FIPS, method="ML")
+summary(model.c)
+
+
+# sci_prob_self
+# movement_signal
+
+```
+
+```{r}
+# https://rstudio-pubs-static.s3.amazonaws.com/305316_c2e72182a11f41d39051d5c9091e4911.html
+# There is the fixed part, which will have the average intercept and the
+# parameter estimate for the time variable. To model the random intercepts, we
+# use the 1 to signify that this is a random intercepts model where we want
+# intercepts for each student (i.e. the id variable).
+
+#random intercept model for individual county differences
+model1 = lme(fixed = vacc_rate ~ week_num + trump_votes_2016 + case_rate, 
+             random = ~ 1 | FIPS, data = google,
+             control = lmeControl(opt = "optim"))
+summary(model1)
+
+##individual trajectory model with random slope for time
+model2 = lme(fixed = vacc_rate ~ week_num + trump_votes_2016 + case_rate, 
+             random = ~ week_num | FIPS, data = google,
+             control = lmeControl(opt = "optim"))
+summary(model2)
+
+
+# 
+model3 = lme(fixed = vacc_rate ~ week_num + trump_votes_2016 + 
+               unemployed_rate*week_num + case_rate*week_num, 
+             random = ~ week_num + unemployed_rate + case_rate| FIPS, 
+             data = google,
+             control = lmeControl(opt = "optim"))
+summary(model3)
+
+# Another way to model longitudinal data with a multilevel model is to change
+# the structure of the error variance. In the previous model we assumed that the
+# error terms were uncorrelated after accounting for the variance between and
+# within the students; however, there may still be some correlation between the
+# time points. Therefore, we could use a common error structure where the
+# correlation between adjacent time points are accounted for. Let us go back to
+# the original model with just time and random intercepts to demonstrate r-code
+# for this scenario. The new component is the correlation = corAR1(), which
+# tells r to use a autoregression 1 error structure, which is what I just
+# described.
+model5 = lme(fixed =vacc_rate ~ week_num + trump_votes_2016 + case_rate, 
+             random = ~ week_num | FIPS,
+             correlation = corAR1(), 
+             data = google,
+             control = lmeControl(opt = "optim"))
+summary(model5)
+
+
+
+
+model6 = lme(fixed = vacc_rate ~ week_num + 
+               p_white + p_college + perc_65_over + income_med + 
+               trump_votes_2016 + rep_gov_2020 + evangelical_county +
+               unemployed_rate*week_num + case_rate*week_num, 
+             random = ~ week_num + unemployed_rate + case_rate| FIPS, 
+             data = google,
+             correlation = corAR1(), 
+             control = lmeControl(opt = "optim"))
+summary(model6)
+
+#The parameter phi is .94, which is a good indicator that adjacent time points
+#for each person are related. References: Finch, W. H., Bolin, J. E., & Kelley,
+#K. (2014). Multilevel modeling using R. Crc Press.
+
+```
+
+
+## Hypothesis 2
+Having a low percent of Facebook friends living outside of the county will not lead to an increase in time spent in residence and decrease in vaccine uptake.
+
+TODO Rephrase as community integreation NOT isolation, differnt concepts. 
+
+i.e. add in % facebook friends in county against time in residence 
+
+```{r}
+google_h2 <- lme(fixed = vacc_rate ~ week_num + 
+               p_white + p_college + perc_65_over + income_med + 
+               trump_votes_2016 + rep_gov_2020 + evangelical_county +
+               unemployed_rate*week_num + case_rate*week_num + 
+                 sci_prob_self, 
+             random = ~ week_num + unemployed_rate + case_rate| FIPS, 
+             data = google,
+             correlation = corAR1(), 
+             control = lmeControl(opt = "optim"))
+summary(google_h2)
+pred <- ggpredict(google_h2, c("week_num", "sci_prob_self"))
+plot(pred)
+
+
+# super strong negative correlation of community integration, or likelihood people from the same county would be connected, indicating that the stronger community self-integration to more less likely to stay home, regardless of religious and polticial affiliation. 
+```
+
+## Hypothesis 3
+increased average time spent in residence (signal direction) from alters will have a positive effect on time spent in residence for the ego-county; increase vaccine uptake by alters will have a positive effect on vaccine uptake for the ego-county
+
+```{r}
+google_h3 <- lme(fixed = vacc_rate ~ week_num + 
+               p_white + p_college + perc_65_over + income_med + 
+               trump_votes_2016 + rep_gov_2020 + evangelical_county +
+               unemployed_rate*week_num + case_rate*week_num + 
+                 movement_signal*week_num, 
+             random = ~ week_num + unemployed_rate + case_rate + movement_signal| FIPS, 
+             data = google,
+             correlation = corAR1(), 
+             control = lmeControl(opt = "optim"))
+summary(google_h3)
+pred <- ggpredict(google_h3, c("week_num", "movement_signal"))
+plot(pred)
+```
+
+## Hypothesis 4
+
+Hypothesis 4 the effect of signal direction on time spent in residence and vaccine uptake will be moderated by diversity in signals (assortativity)
+i.e. 
+create assortativity variable based on Ron's comments and Diego Leal's paper formula
+
+Formula = 
+
+model average signal x assortativity against time in residence  
+```{r}
+google_h4 <- lme(fixed = vacc_rate ~ week_num + 
+               p_white + p_college + perc_65_over + income_med + 
+               trump_votes_2016 + rep_gov_2020 + evangelical_county +
+               unemployed_rate*week_num + case_rate*week_num + 
+              movement_signal*week_num + movement_signal*movement_assor, 
+             random = ~ week_num + unemployed_rate + case_rate + movement_signal| FIPS, 
+             data = google,
+             correlation = corAR1(), 
+             control = lmeControl(opt = "optim"))
+summary(google_h4)
+pred <- ggpredict(google_h4, c("movement_assor", "movement_signal"))
+plot(pred)
+```
+
+
+# vaccines
+
+## Clean data
+
+```{r}
+# source("data-cleaning.R")
+vacc <- read_csv(here("data", "vacc_main.csv"))  %>% 
+  select(FIPS, date, vacc_rate, sci_prob_self, vacc_signal, 
+         case_rate, p_white, p_black, p_college, p_hispanic,
+         perc_65_over, unemployed_rate, income_med, 
+             trump_votes_2020, rep_gov_2020, evangelical_county) %>% 
+    drop_na() %>% 
+  mutate(across(sci_prob_self:evangelical_county, ~ scale(., center=TRUE, scale=TRUE)),
+         week_num = as.numeric((date - lubridate::ymd("2020-12-28")) / 7))
+
+
+ggplot(vacc, aes(x = week_num, y = vacc_rate, group = FIPS)) + geom_line()
+
+```
+
+## Hypothesis 1
+Relatively higher local rates of infection will lead to increased time spent in residence and increase vaccination uptake
+
+i.e. model local infection against time in residence
+
+```{r}
+# https://rstudio-pubs-static.s3.amazonaws.com/305316_c2e72182a11f41d39051d5c9091e4911.html
+# There is the fixed part, which will have the average intercept and the
+# parameter estimate for the time variable. To model the random intercepts, we
+# use the 1 to signify that this is a random intercepts model where we want
+# intercepts for each student (i.e. the id variable).
+
+
+model0 = lme(fixed = vacc_rate ~ week_num,
+             random = ~ 1 | FIPS, data = vacc,
+             control = lmeControl(opt = "optim"))
+summary(model0)
+
+
+
+#random intercept model for individual county differences
+model1 = lme(fixed = vacc_rate ~ week_num + trump_votes_2020 + case_rate,
+             random = ~ 1 | FIPS, data = vacc,
+             control = lmeControl(opt = "optim"))
+summary(model1)
+
+##individual trajectory model with random slope for time
+model2 = lme(fixed = vacc_rate ~ week_num + trump_votes_2016 + case_rate, 
+             random = ~ week_num | FIPS, data = vacc,
+             control = lmeControl(opt = "optim"))
+summary(model2)
+
+
+
+# 
+model3 = lme(fixed = vacc_rate ~ week_num + trump_votes_2016 + 
+               unemployed_rate*week_num  + case_rate*week_num,
+             random = ~ week_num + unemployed_rate | FIPS, 
+             data = vacc,
+             control = lmeControl(opt = "optim"))
+summary(model3)
+
+pred <- ggpredict(model3, c("week_num", "case_rate"))
+plot(pred)
+
+# Another way to model longitudinal data with a multilevel model is to change
+# the structure of the error variance. In the previous model we assumed that the
+# error terms were uncorrelated after accounting for the variance between and
+# within the students; however, there may still be some correlation between the
+# time points. Therefore, we could use a common error structure where the
+# correlation between adjacent time points are accounted for. Let us go back to
+# the original model with just time and random intercepts to demonstrate r-code
+# for this scenario. The new component is the correlation = corAR1(), which
+# tells r to use a autoregression 1 error structure, which is what I just
+# described.
+
+model5 = lme(fixed = vacc_rate ~ week_num + trump_votes_2016 + case_rate,  
+             random = ~ week_num | FIPS,
+             correlation = corAR1(), 
+             data = vacc,
+             control = lmeControl(opt = "optim"))
+summary(model5)
+# this one has a multicollinearity issue it looks like
+
+
+
+model6 = lme(fixed = vacc_rate ~ week_num + trump_votes_2016 + 
+               p_white + p_college + perc_65_over + income_med + 
+               trump_votes_2016 + rep_gov_2020 + evangelical_county +
+               unemployed_rate*week_num + case_rate*week_num, 
+             random = ~ week_num + unemployed_rate + case_rate| FIPS, 
+             data = vacc,
+             correlation = corAR1(), 
+             control = lmeControl(opt = "optim"))
+summary(model6)
+
+
+pred <- ggpredict(model6, c("week_num", "case_rate"))
+plot(pred)
+
+#The parameter phi is .99, which is a good indicator that adjacent time points
+#for each person are related. References: Finch, W. H., Bolin, J. E., & Kelley,
+#K. (2014). Multilevel modeling using R. Crc Press.
+
+```
+
+
+## Hypothesis 2
+Having a low percent of Facebook friends living outside of the county will not lead to an increase in time spent in residence and decrease in vaccine uptake.
+
+TODO Rephrase as community integreation NOT isolation, differnt concepts. 
+
+i.e. add in % facebook friends in county against time in residence 
+
+```{r}
+vacc_h2 <- lme(fixed = vacc_rate ~ week_num + 
+               p_white + p_college + perc_65_over + income_med + 
+               trump_votes_2016 + rep_gov_2020 + evangelical_county +
+                 sci_prob_self, 
+             random = ~ week_num  | FIPS, 
+             data = vacc,
+             correlation = corAR1(), 
+             control = lmeControl(opt = "optim"))
+summary(vacc_h2)
+
+pred <- ggpredict(vacc_h2, c("week_num", "sci_prob_self"))
+plot(pred)
+
+# super strong negative correlation of community integration, or likelihood
+# people from the same county would be connected, indicating that the stronger
+# community self-integration to more less likely to stay home, regardless of
+# religious and polticial affiliation.
+
+```
+
+## Hypothesis 3
+increased average time spent in residence (signal direction) from alters will have a positive effect on time spent in residence for the ego-county; increase vaccine uptake by alters will have a positive effect on vaccine uptake for the ego-county
+
+```{r}
+vacc_h3 <- lme(fixed = vacc_rate ~ week_num +
+               p_white + p_college + perc_65_over + income_med + 
+               trump_votes_2016 + rep_gov_2020 + evangelical_county +
+               unemployed_rate*week_num + 
+                 vacc_signal*week_num, 
+             random = ~ week_num + unemployed_rate + vacc_signal| FIPS, 
+             data = vacc,
+             correlation = corAR1(), 
+             control = lmeControl(opt = "optim"))
+summary(vacc_h3)
+
+pred <- ggpredict(vacc_h3, c("week_num", "vacc_signal"))
+plot(pred)
+```
+
+## Hypothesis 4
+
+Hypothesis 4 the effect of signal direction on time spent in residence and vaccine uptake will be moderated by diversity in signals (assortativity)
+i.e. 
+create assortativity variable based on Ron's comments and Diego Leal's paper formula
+
+Formula = 
+
+model average signal x assortativity against time in residence  
+```{r}
+
+```
