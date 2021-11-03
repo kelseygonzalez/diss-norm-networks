@@ -9,7 +9,7 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-pacman::p_load(tidyverse, vroom, readxl, here, tidycensus, zoo)
+pacman::p_load(tidyverse, vroom, readxl, here, tidycensus, zoo, radiant.data)
 
 # county to state
 count_to_state <- read_csv("https://raw.githubusercontent.com/kjhealy/fips-codes/master/county_fips_master.csv") %>% 
@@ -47,6 +47,10 @@ sci_self <- sci %>%
   select(FIPS = user_loc, sci_prob_self = scaled_sci)
 
     # ggplot(sci_self, aes(x = sci_prob_self))+geom_density()
+
+# drop from 10,413,529 vs 798,929 for memory help
+sci <- sci %>% 
+  filter(scaled_sci > 0.00001)
 
 ```
 ```{r acs}
@@ -163,7 +167,7 @@ LAUS_20 <- vroom(here("data","LAUS.csv")) %>%
          period = lubridate::mdy(period) )  %>% 
   select(FIPS, period, unemployed_rate = unemployment_rate)
 
-# THIS IS BROKEN as a csv AND IT WON'T LOAD AND IDK WHY so now it's just an excel :shrug:
+# THIS IS BROKEN as a csv AND IT WON'T LOAD AND IDK WHY it's a windows thing so now it's just an excel :shrug:
 LAUS_21 <- read_excel(here("data","LAUS_2021.xlsx")) %>% 
   mutate(FIPS_state = str_pad(fips_state, 2, pad = "0"),
          FIPS_county = str_pad(fips_county, 3, pad = "0"),
@@ -178,23 +182,22 @@ LAUS <- bind_rows(LAUS_20, LAUS_21) %>%
 
 rm(list = c("LAUS_20", "LAUS_21"))
 ```
+
 ```{r covid-rate}
 # Covid rates control , this is not super reliable early on
     # https://business-science.github.io/timetk/articles/TK07_Time_Series_Data_Wrangling.html
 
-covid_rate <- vroom(here("data", "covid-rates", "us-counties-2020.csv")) %>% 
+covid_rate_2020 <- vroom(here("data", "covid-rates", "us-counties-2020.csv")) %>% 
   mutate(FIPS = str_split_fixed(geoid, "-", 2)[,2]) %>% 
   select(FIPS, date, case_rate = cases_avg_per_100k) 
 
-# covid_rate %>% 
-#   filter(FIPS %in% c("53061", "06059", "17031")) %>% 
-#   group_by(FIPS) %>% 
-#   mutate(case_rate = tidyr::replace_na(case_rate, 0),
-#          case_rate_30 = zoo::rollmean(case_rate, k = 30, fill = NA),
-#          case_rate_7 = zoo::rollmean(case_rate, k = 7, fill = NA)) %>% 
-#   pivot_longer(cols = c(case_rate_30, case_rate_7, case_rate)) %>%
-#   ggplot(aes(x=date, y = value,color = name, group = name)) + geom_line() + geom_point() +facet_wrap(~ FIPS)
+covid_rate_2021 <- vroom(here("data", "covid-rates", "us-counties-2021.csv")) %>% 
+  mutate(FIPS = str_split_fixed(geoid, "-", 2)[,2]) %>% 
+  select(FIPS, date, case_rate = cases_avg_per_100k) 
 
+covid_rate <- bind_rows(covid_rate_2020, covid_rate_2021) 
+
+rm(list = c("covid_rate_2020", "covid_rate_2021"))
 
 covid_rate <- covid_rate %>%
     group_by(FIPS) %>%
@@ -206,29 +209,26 @@ covid_rate <- covid_rate %>%
 ```
  
 ```{r trends}
-# # bringing in DMA fox new search from
-# # https://dataverse.harvard.edu/file.xhtml?persistentId=doi:10.7910/DVN/IVXEHT/A56RIW&version=7.4
-# dma <- read_csv(here("masks", "data", "county_dma.csv")) %>% 
-#   mutate(FIPS_state = case_when(STATEFP < 10 ~ paste0("0", as.character(STATEFP)),
-#                                 between(STATEFP, 10, 100) ~ as.character(STATEFP)),
-#          FIPS_county = case_when(CNTYFP < 10 ~ paste0("00", as.character(CNTYFP)),
-#                                  between(CNTYFP, 10, 99) ~ paste0("0", as.character(CNTYFP)),
-#                                  TRUE ~ as.character(CNTYFP)),
-#          FIPS = paste0(FIPS_state, FIPS_county)) %>% 
-#   select(FIPS, DMA)
-# dma_key <- read_csv(here("masks", "data","google_dma_key.csv"))
+# bringing in DMA fox new search from
+# https://dataverse.harvard.edu/file.xhtml?persistentId=doi:10.7910/DVN/IVXEHT/A56RIW&version=7.4
+dma <- read_csv(here("data", "county_dma.csv")) %>%
+    mutate(FIPS_state = str_pad(STATEFP, 2, pad = "0"),
+         FIPS_county = str_pad(CNTYFP, 3, pad = "0"),
+         FIPS = paste0(FIPS_state, FIPS_county)) %>%
+  select(FIPS, DMA)
+dma_key <- read_csv(here("data","google_dma_key.csv"))
+
+dma <- dma %>%
+  full_join(dma_key)
 # 
-# dma <- dma %>% 
-#   full_join(dma_key)
-# 
-# media <- read_csv(here("media","google_media_trends_region.csv")) %>% 
+# fox_news <- read_csv(here("data","trends","fox_news.csv")) %>%
 #   mutate(DMA_google = str_to_upper(DMA_google),
 #          DMA_google = str_replace_all(DMA_google,"-", " - "),
 #          DMA_google = str_replace_all(DMA_google,",", ""),
-#          DMA_google = str_replace_all(DMA_google,"\\s(\\w{2})\\b", " \\(\\1\\)")) %>% 
-#   full_join(dma, by = "DMA_google") %>% 
-#   relocate(DMA, DMA_google) %>% 
-#   janitor::clean_names() %>% 
+#          DMA_google = str_replace_all(DMA_google,"\\s(\\w{2})\\b", " \\(\\1\\)")) %>%
+#   full_join(dma, by = "DMA_google") %>%
+#   relocate(DMA, DMA_google) %>%
+#   janitor::clean_names() %>%
 #   rename(FIPS = fips)
 
 ```
@@ -238,6 +238,7 @@ covid_rate <- covid_rate %>%
 # Movement
 
 ## Dependent variable
+
 ```{r}
 google <- vroom(here("data","covid-mobility", "2020_US_Region_Mobility_Report.csv"))  %>% 
   drop_na(census_fips_code) %>% 
@@ -264,33 +265,34 @@ merge_alter_movement <- function(data) {
                    c("date_lag" = "date")))
 }
 weight_avg_move <- function(df) weighted.mean(df$SAH, w = df$scaled_sci, na.rm = TRUE)
+weight_sd_move <- function(df) radiant.data::weighted.sd(df$SAH, wt = df$scaled_sci, na.rm = TRUE)
 
 overall_average_SAH <- google %>% 
-  group_by(date) %>% 
-  summarize(SAH_mean = mean(SAH, na.rm = TRUE))
+  dplyr::group_by(date) %>% 
+  dplyr::summarize(SAH_mean = mean(SAH, na.rm = TRUE))
 
   
 google <-
   google %>%                                                # movement data
-  
-  # take a sample for testing
-  filter(FIPS %in% c("53061", "06059", "17031", "39159", "49017", "25013")) %>%
-  group_by(date) %>%                                          # group by date
-  mutate(date_lag = date - 7) %>% 
-  left_join(sci, by = c("FIPS" = "user_loc")) %>%             # merge in sci
-  nest(data = c(date_lag, fr_loc, scaled_sci)) %>% 
-  mutate(data = map(data, merge_alter_movement)) %>%    # merge in alter's lagged movement
-  mutate(movement_signal = map_dbl(data, weight_avg_move),      # take weighted mean
-         .keep = "unused")  %>% 
+  dplyr::group_by(date) %>%                                          # group by date
+  dplyr::mutate(date_lag = date - 7) %>% 
+  dplyr::left_join(sci, by = c("FIPS" = "user_loc")) %>%             # merge in sci
+  tidyr::nest(data = c(date_lag, fr_loc, scaled_sci)) %>% 
+  dplyr::mutate(data = map(data, merge_alter_movement)) %>%    # merge in alter's lagged movement
+  dplyr::mutate(movement_signal = map_dbl(data, weight_avg_move),      # take weighted mean
+         movement_assor = map_dbl(data, weight_sd_move),
+          .keep = "unused")  %>% 
   left_join(overall_average_SAH, by = "date") %>% 
   mutate(date_month = lubridate::month(date),
          date_year = lubridate::year(date))
     
-google  %>% 
-  pivot_longer(cols = c(SAH, movement_signal, SAH_mean)) %>% 
-  ggplot(aes(x = date, y = value, color = name)) + geom_line() + facet_wrap(~FIPS) + theme_classic()
+# google  %>% 
+  # take a sample for testing
+  # filter(FIPS %in% c("53061", "06059", "17031", "39159", "49017", "25013")) %>%
+#   pivot_longer(cols = c(SAH, movement_signal, SAH_mean)) %>% 
+#   ggplot(aes(x = date, y = value, color = name)) + geom_line() + facet_wrap(~FIPS) + theme_classic()
 
-
+write_csv(google, here("data", "google_intermediate.csv"))
 rm(list = c("overall_average_SAH"))
 ```
 
@@ -298,13 +300,15 @@ rm(list = c("overall_average_SAH"))
 ## master data set
 merge in time invarying
 ```{r google_merge_1}
-google <- google %>% 
+google <- vroom( here("data", "google_intermediate.csv")) %>% 
   left_join(time_constant, by = "FIPS")
 ```
 merge in time varying
 ```{r google_merge_2}
 google <- google %>% 
-  left_join(LAUS, by = c("FIPS", "date_month", "date_year"))
+  left_join(LAUS, by = c("FIPS", "date_month", "date_year")) %>% 
+    left_join(covid_rate, by = c("FIPS", "date"))
+
 ```
 
 ## save movement
@@ -330,7 +334,7 @@ vacc <- vroom(here("data","vaccination-rates", "COVID-19_Vaccinations_in_the_Uni
 
 vacc <- vacc %>% 
   group_by(FIPS) %>%
-  mutate(vacc_rate_2 = zoo::na.approx(vacc_rate, na.rm = TRUE),
+  mutate(vacc_rate_ = zoo::na.approx(vacc_rate, na.rm = TRUE),
          vacc_rate = zoo::rollmean(vacc_rate, k = 7, fill = NA),
          wday = lubridate::wday(date, label=TRUE)) %>% 
   filter(wday == "Mon",
@@ -343,6 +347,8 @@ vacc <- vacc %>%
 ```{r}
 # weighted_mean_movement_signal   
 weight_avg_vacc <- function(df) weighted.mean(df$vacc_rate, w = df$scaled_sci, na.rm = TRUE)
+weight_sd_vacc <- function(df) radiant.data::weighted.sd(df$SAH, wt = df$scaled_sci, na.rm = TRUE)
+
 merge_alter_vacc <- function(data) {
   left_join(x = data, 
             y = vacc, 
@@ -362,6 +368,7 @@ vacc <-  vacc %>%                                         # vacc data
   nest(data = c(date_lag, fr_loc, scaled_sci)) %>% 
   mutate(data = map(data, merge_alter_vacc)) %>%              # merge in alter's lagged movement
   mutate(vacc_signal = map_dbl(data, weight_avg_vacc),# take weighted mean
+         vacc_assor = map_dbl(data, weight_sd_vacc), # take weighted sd
          .keep = "unused")  %>% 
   left_join(overall_average_vacc, by = "date") %>% 
   mutate(date_month = lubridate::month(date),
@@ -372,7 +379,8 @@ vacc <-  vacc %>%                                         # vacc data
       # pivot_longer(cols = c(vacc_rate, vacc_signal, vacc_mean)) %>% 
       # ggplot(aes(x = date, y = value, color = name)) + geom_line() + facet_wrap(~FIPS) + theme_classic()
 
-rm(list = c("overall_average_vacc", "sci"))
+write_csv(vacc, here("data", "vacc_intermediate.csv"))
+rm(list = c("overall_average_vacc", "sci", "vacc"))
 
 
 ```
@@ -380,19 +388,32 @@ rm(list = c("overall_average_vacc", "sci"))
 ## master data set
 merge in time invarying
 ```{r vacc_merge_1}
-vacc <- vacc %>% 
-  left_join(time_constant, by = "FIPS")
+
+vacc <- vroom( here("data", "vacc_intermediate.csv")) %>% 
+  group_by(FIPS, date) %>%
+  summarize(vacc_rate = mean(vacc_rate, na.rm = T), # there are some duplicates, this drops them
+            vacc_signal  = mean(vacc_signal, na.rm = T),
+            vacc_mean  = mean(vacc_mean, na.rm = T),
+            date_month  = mean(date_month, na.rm = T),
+            date_year = mean(date_year, na.rm = T)) %>%
+  ungroup() %>%
+  distinct() %>%
+  left_join(distinct(time_constant), by = "FIPS") 
+# n = 138682
+vacc <- vacc %>% drop_na()
+# n = 129871
 ```
 merge in time varying
 ```{r vacc_merge_2}
 vacc <- vacc %>% 
-  left_join(LAUS, by = c("FIPS", "date_month", "date_year"))
+  left_join(LAUS, by = c("FIPS", "date_month", "date_year"))%>% 
+  left_join(covid_rate, by = c("FIPS", "date"))
 # need trends data here 
 ```
 
 ## save vacc
 ```{r vacc_save}
 write_csv(vacc, here("data", "vacc_main.csv"))
-rm(list = c("overall_average_vacc", "time_constant", "LAUS", "vacc"))
+rm(list = c("sci", "time_constant", "LAUS", "vacc", "covid_rate"))
 
 ```
