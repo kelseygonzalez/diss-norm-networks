@@ -221,15 +221,23 @@ dma_key <- read_csv(here("data","google_dma_key.csv"))
 dma <- dma %>%
   full_join(dma_key)
 # 
-# fox_news <- read_csv(here("data","trends","fox_news.csv")) %>%
-#   mutate(DMA_google = str_to_upper(DMA_google),
-#          DMA_google = str_replace_all(DMA_google,"-", " - "),
-#          DMA_google = str_replace_all(DMA_google,",", ""),
-#          DMA_google = str_replace_all(DMA_google,"\\s(\\w{2})\\b", " \\(\\1\\)")) %>%
-#   full_join(dma, by = "DMA_google") %>%
-#   relocate(DMA, DMA_google) %>%
-#   janitor::clean_names() %>%
-#   rename(FIPS = fips)
+fox_news_2020 <- read_csv(here("data","trends","fox_dma_2020.csv")) %>%
+  mutate(location = str_to_upper(location),
+         location = str_replace_all(location,"-", " - "),
+         location = str_replace_all(location,",", ""),
+         location = str_replace_all(location,"\\s(\\w{2})\\b", " \\(\\1\\)")) %>% 
+  select(DMA_google = location, fox_news = hits_transformed_a, date) %>% 
+  full_join(dma, by = "DMA_google") %>%
+  select(fox_news, date, FIPS)
+
+fox_news_2021 <- read_csv(here('data','trends','fox_dma_2021.csv')) %>%
+  mutate(location = str_to_upper(location),
+         location = str_replace_all(location,"-", " - "),
+         location = str_replace_all(location,",", ""),
+         location = str_replace_all(location,"\\s(\\w{2})\\b", " \\(\\1\\)")) %>% 
+  select(DMA_google = location, fox_news = hits_transformed_a, date) %>% 
+  full_join(dma, by = "DMA_google")  %>%
+  select(fox_news, date, FIPS)
 
 ```
 
@@ -307,7 +315,8 @@ merge in time varying
 ```{r google_merge_2}
 google <- google %>% 
   left_join(LAUS, by = c("FIPS", "date_month", "date_year")) %>% 
-    left_join(covid_rate, by = c("FIPS", "date"))
+  left_join(covid_rate, by = c("FIPS", "date")) %>% 
+  left_join(fox_news_2020, by =  c("FIPS", "date")) 
 
 ```
 
@@ -407,8 +416,8 @@ merge in time varying
 ```{r vacc_merge_2}
 vacc <- vacc %>% 
   left_join(LAUS, by = c("FIPS", "date_month", "date_year"))%>% 
-  left_join(covid_rate, by = c("FIPS", "date"))
-# need trends data here 
+  left_join(covid_rate, by = c("FIPS", "date")) %>% 
+  left_join(fox_news_2021, by =  c("FIPS", "date")) 
 ```
 
 ## save vacc
