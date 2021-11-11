@@ -323,7 +323,7 @@ google <- google %>%
 ## save movement
 ```{r google_save}
 write_csv(google, here("data", "google_movement_main.csv"))
-rm(list = c("google"))
+rm(list = c("google", "fox_news_2020"))
 ```
 
 
@@ -356,7 +356,7 @@ vacc <- vacc %>%
 ```{r}
 # weighted_mean_movement_signal   
 weight_avg_vacc <- function(df) weighted.mean(df$vacc_rate, w = df$scaled_sci, na.rm = TRUE)
-weight_sd_vacc <- function(df) radiant.data::weighted.sd(df$SAH, wt = df$scaled_sci, na.rm = TRUE)
+weight_sd_vacc <- function(df) radiant.data::weighted.sd(df$vacc_rate, wt = df$scaled_sci, na.rm = TRUE)
 
 merge_alter_vacc <- function(data) {
   left_join(x = data, 
@@ -367,7 +367,7 @@ merge_alter_vacc <- function(data) {
 
 overall_average_vacc <- vacc %>% 
   group_by(date) %>% 
-  summarize(vacc_mean = mean(vacc_rate, na.rm = TRUE))
+  summarize(weekly_vacc_mean = mean(vacc_rate, na.rm = TRUE))
 
 vacc <-  vacc %>%                                         # vacc data
   # filter(FIPS %in% c("53061", "06059", "17031", "39159", "49017", "25013")) %>%
@@ -398,11 +398,12 @@ rm(list = c("overall_average_vacc", "sci", "vacc"))
 merge in time invarying
 ```{r vacc_merge_1}
 
-vacc <- vroom( here("data", "vacc_intermediate.csv")) %>% 
+vacc <- vroom::vroom( here("data", "vacc_intermediate.csv")) %>% 
   group_by(FIPS, date) %>%
   summarize(vacc_rate = mean(vacc_rate, na.rm = T), # there are some duplicates, this drops them
             vacc_signal  = mean(vacc_signal, na.rm = T),
-            vacc_mean  = mean(vacc_mean, na.rm = T),
+            vacc_assor  = mean(vacc_assor, na.rm = T),
+            weekly_vacc_mean  = mean(weekly_vacc_mean, na.rm = T),
             date_month  = mean(date_month, na.rm = T),
             date_year = mean(date_year, na.rm = T)) %>%
   ungroup() %>%
@@ -423,6 +424,6 @@ vacc <- vacc %>%
 ## save vacc
 ```{r vacc_save}
 write_csv(vacc, here("data", "vacc_main.csv"))
-rm(list = c("sci", "time_constant", "LAUS", "vacc", "covid_rate"))
+rm(list = c("sci", "time_constant", "LAUS", "vacc", "covid_rate", "fox_news_2021"))
 
 ```
