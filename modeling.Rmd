@@ -10,9 +10,10 @@ editor_options:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, 
                       message = FALSE,
-                      warning = FALSE)
-pacman::p_load(tidyverse, here, lme4, stargazer)
-
+                      warning = FALSE,
+                      cache = TRUE)
+pacman::p_load(tidyverse, here, nlme, lme4, stargazer, sjPlot, ggeffects, patchwork, ggridges)
+my_palette = c('#56b4e9','#999999','#CC79A7','#009E73','#0072B2','#E69F00','#D55E00','#E69F00')
 ```
 
 # Data and Methods
@@ -37,31 +38,52 @@ likelihood people from the same county would be connected
 #                            dplyr::between(movement_signal,  2.4,2.7)) %>% slice_sample(n=1)
 sample = c("08003", '55057', '51059', '39085', '36119', '34021', '12071')
 
-
-google %>% 
-dplyr::filter(date == lubridate::ymd("2020-04-06")) %>%
-      left_join(count_to_state, by = "FIPS") %>% 
-  mutate(name = ifelse(FIPS %in% sample, name, ""),
-         size= ifelse(FIPS %in% sample, 2, 1),
-         alpha= ifelse(FIPS %in% sample, 1, .5)) %>% 
-  ggplot(aes(x = movement_signal, y = movement_assor, color = name, size = factor(size), alpha = alpha)) + geom_point() + 
-  geom_text(aes(x = movement_signal + 0.5, y = movement_assor + 0.3, label = name), size = 3) + 
-  theme_minimal() +
-  labs() + 
-  theme(legend.position = 'none')
-
-
-
 sci <- readr::read_tsv(here('data', 'social-connectedness', 'county_county.tsv') ) %>% 
   mutate(scaled_sci = scaled_sci/1000000000) %>% 
   filter(scaled_sci > 0.00001)
+
 count_to_state <- read_csv("https://raw.githubusercontent.com/kjhealy/fips-codes/master/county_fips_master.csv") %>% 
   mutate(FIPS = str_pad(fips, 5, pad = "0"),
          name = paste0(county_name,", " ,state_abbr)) %>% 
   select(FIPS, name)
 
+plot1a_data <- google %>% 
+  dplyr::filter(date == lubridate::ymd("2020-04-06")) %>%
+  left_join(count_to_state, by = "FIPS") %>% 
+  mutate(name = ifelse(FIPS %in% sample, name, NA_character_),
+         size= ifelse(FIPS %in% sample, 2, 1),
+         alpha= ifelse(FIPS %in% sample, 1, .5)) 
 
-goog <- vroom::vroom(here("data","covid-mobility", "2020_US_Region_Mobility_Report.csv"))  %>% 
+plot1a <- ggplot() + 
+  #background points)
+  geom_point(data = filter(plot1a_data, is.na(name)), 
+             aes(x = movement_signal, y = movement_assor), 
+             size = 1,
+             alpha = .25,
+             color = 'grey') + 
+  #highlighted points
+  geom_point(data = filter(plot1a_data, !is.na(name)), 
+             aes(x = movement_signal, y = movement_assor,color = name),
+             size = 4,
+             alpha = 1) +
+  geom_text(data = filter(plot1a_data, !is.na(name)),
+            aes(x = movement_signal, 
+                y = movement_assor, 
+                label = name,
+                color = name), 
+            size = 3,
+            vjust = -1,
+            hjust = -0.15) + 
+  theme_minimal() +
+  theme(legend.position = 'none',
+        plot.title.position = "plot",
+        plot.title = element_text(size=10)) +
+  scale_fill_manual(values=my_palette[1:7]) +
+  scale_color_manual(values=my_palette[1:7]) +
+  labs(title = 'Scatterplot of Signals and Assortativity with 7 counties highlighted',
+       x = 'Stay at Home Signals', y = 'Signal Assortativity')
+
+plot1b_data <- vroom::vroom(here("data","covid-mobility", "2020_US_Region_Mobility_Report.csv"))  %>% 
   drop_na(census_fips_code) %>% 
   select(date, FIPS = census_fips_code, SAH = residential_percent_change_from_baseline) %>% 
   filter(!is.na(FIPS)) %>%
@@ -74,26 +96,38 @@ goog <- vroom::vroom(here("data","covid-mobility", "2020_US_Region_Mobility_Repo
   select(FIPS, date, SAH) %>% 
   ungroup()
 
-goog %>%              
-   filter(FIPS %in% sample,
-          date == lubridate::ymd("2020-04-06")) %>%
-    select(-SAH) %>% 
+plot1b <- plot1b_data %>%              
+  filter(FIPS %in% sample,
+         date == lubridate::ymd("2020-04-06")) %>%
+  select(-SAH) %>% 
   dplyr::mutate(date_lag = date - 7) %>% 
   dplyr::left_join(sci, by = c("FIPS" = "user_loc")) %>%     
-  dplyr::left_join(goog, by = c(c("fr_loc" = "FIPS"),
-                   c("date_lag" = "date"))) %>%
-    left_join(count_to_state, by = "FIPS") %>% 
-    left_join(select(google, FIPS, date, movement_signal, movement_assor), by = c('date', 'FIPS')) %>% 
-    ggplot() + 
-    ggridges::geom_density_ridges(aes(x = SAH, y = name, fill = name), alpha = 0.5, show.legend = FALSE) +
-        geom_segment(aes(x = (movement_signal - movement_assor) , 
-                     xend = (movement_signal + movement_assor),
-                     y = name, 
-                     yend = name), lineend = 'butt', size = 2) +
-    geom_point(aes(x = movement_signal, y = name, color = name), size = 3) +
-     geom_point(aes(x = movement_signal, y = name), size = 2, color = 'black') +
-    theme_minimal() + 
-    labs(title = "Figure X: Movement Signals ")
+  dplyr::left_join(plot1b_data, by = c(c("fr_loc" = "FIPS"),
+                                       c("date_lag" = "date"))) %>%
+  left_join(count_to_state, by = "FIPS") %>% 
+  left_join(select(google, FIPS, date, movement_signal, movement_assor), by = c('date', 'FIPS')) %>% 
+  ggplot() + 
+  geom_density_ridges(aes(x = SAH, y = name, fill = name), 
+                      alpha = 0.5, show.legend = FALSE, color = NA, scale = 0.95) +
+  geom_segment(aes(x = (movement_signal - movement_assor) , 
+                   xend = (movement_signal + movement_assor),
+                   y = name, 
+                   yend = name), lineend = 'butt', size = 2, show.legend = FALSE, alpha = 0.6, color = '#4c4c4c') +
+  geom_point(aes(x = movement_signal, y = name, color = name), size = 3, show.legend = FALSE) +
+  geom_point(aes(x = movement_signal, y = name), size = 1, color = '#4c4c4c', show.legend = FALSE, alpha = 0.6) +
+  theme_minimal() +
+  theme(plot.title.position = "plot",
+        plot.title = element_text(size=10),
+        plot.subtitle = element_text(size = 8)) +
+  labs(x = 'Stay at Home Signals', y = '',
+       title = 'Raw distribution of Stay at Home Signals per county with the weighted average and standard deviation highlighted',
+       subtitle = 'Colored Point = Weighted Mean; Grey line = Weighted SD or spread of signals')  +
+  scale_fill_manual(values=my_palette[1:7]) +
+  scale_color_manual(values=my_palette[1:7]) 
+  
+  
+plot1a + plot1b + 
+  plot_annotation(title = 'Plot 1: How Signal Mean and Signal Assortativity are Measured')
 ```
 
 
@@ -118,7 +152,7 @@ unemployment rate
 
 # Stay at Home Rates
 
-```{r}
+```{r load_google}
 # source("data-cleaning.R")
 google <- read_csv(here("data", "google_movement_main.csv"))  %>% 
   drop_na() %>% 
@@ -134,7 +168,7 @@ google <- read_csv(here("data", "google_movement_main.csv"))  %>%
 Relatively higher local rates of infection will lead to increased time spent in residence and increase googleination uptake
 
 i.e. model local infection against time in residence
-```{r google_h1_archive}
+```{r google_h1_archive, include = FALSE}
 
 # # basic GLM
 # fit.glm<-glm(SAH~week_num + case_rate + p_white +
@@ -219,7 +253,7 @@ i.e. model local infection against time in residence
 
 ```
 
-```{r google_h1}
+```{r google_h1, dependson='load_google'}
 google_h1 = lme(fixed = SAH ~ p_white + p_college + perc_65_over + 
                   income_med + unemployed_rate +
                trump_votes_2016 + rep_gov_2020 + evangelical_county + fox_news+
@@ -230,7 +264,7 @@ google_h1 = lme(fixed = SAH ~ p_white + p_college + perc_65_over +
              control = lmeControl(opt = "optim"))
 
 
-summary(google_h1)
+# summary(google_h1)
 
 #The parameter phi is .95, which is a good indicator that adjacent time points
 #for each person are related. References: Finch, W. H., Bolin, J. E., & Kelley,
@@ -246,7 +280,7 @@ TODO Rephrase as community integreation NOT isolation, differnt concepts.
 
 i.e. add in % facebook friends in county against time in residence 
 
-```{r google_h2}
+```{r google_h2, dependson='load_google'}
 google_h2 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over + 
                   income_med + unemployed_rate +
                trump_votes_2016 + rep_gov_2020 +  evangelical_county + fox_news+
@@ -255,7 +289,7 @@ google_h2 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over +
              data = google,
              correlation = corAR1(), 
              control = lmeControl(opt = "optim"))
-summary(google_h2)
+# summary(google_h2)
 # pred <- ggpredict(google_h2, c("week_num", "sci_prob_self"))
 # plot(pred)
 # google_h2.table <- as.data.frame(coef(summary(google_h2)))
@@ -272,7 +306,7 @@ summary(google_h2)
 ## Hypothesis 3
 increased average time spent in residence (signal direction) from alters will have a positive effect on time spent in residence for the ego-county; increase googleine uptake by alters will have a positive effect on googleine uptake for the ego-county
 
-```{r google_h3}
+```{r google_h3, dependson='load_google'}
 google_h3 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over + 
                   income_med + unemployed_rate +
                trump_votes_2016 + rep_gov_2020 +  evangelical_county + fox_news+
@@ -281,7 +315,7 @@ google_h3 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over +
              data = google,
              correlation = corAR1(), 
              control = lmeControl(opt = "optim"))
-summary(google_h3)
+# summary(google_h3)
 
 # google_h3.table <- as.data.frame(coef(summary(google_h3)))
 
@@ -299,7 +333,7 @@ i.e.
 
 
 model average signal x assortativity against time in residence  
-```{r google_h4}
+```{r google_h4, dependson='load_google'}
 google_h4 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over +
                   income_med + unemployed_rate +
                trump_votes_2016 + rep_gov_2020 +  evangelical_county + fox_news+
@@ -310,7 +344,7 @@ google_h4 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over +
              data = google,
              correlation = corAR1(), 
              control = lmeControl(opt = "optim"))
-summary(google_h4)
+# summary(google_h4)
 
 # google_h4.table <- as.data.frame(coef(summary(google_h4)))
 
@@ -327,11 +361,12 @@ summary(google_h4)
 
 
 
-```{r google-tables}
+```{r google-tables, dependson=c('google_h1','google_h2','google_h3','google_h4')}
 stargazer(
   google_h1, google_h2, google_h3, google_h4,
   title="TABLE 2: Linear Mixed Effects Regression Results for Stay At Home Rates", 
   dep.var.labels = "Stay at Home rate",
+   order=c(1,2,3,4,5,6,7,8,9,10,11,12,13,15,17,14,16),
   covariate.labels = c(
     "Percent White",
     "Percent College Graduates",
@@ -341,37 +376,82 @@ stargazer(
     "Percent of GOP votes",
     "GOP Governor, 2020",
     "Percent Evangelical Christian",
-    # "Fox News Interest",
+    "Fox News Interest",
     "Covid Case Rate",
     "Week Number",
+    "Covid Case Rate x Week",
     "Community Integration",
     "Movement Signal",
-    "movement assor",
-    "Covid Case Rate x Week",
     "Movement Signal x Week",
-    "Movement Signal x assor"),
+    "Movement Assortativity",
+    "Movement Signal x Movement Assortativity"),
     align = TRUE,
     # type = "html",
     type = "text",
     star.cutoffs = c(.05, .01, .001), 
     no.space = T, 
     digits = 2,
-    omit.stat = c("f", "ser", "rsq","adj.rsq"),
+    omit.stat = c("f", 'll', 'aic', 'bic',"ser", "rsq","adj.rsq"),
     column.sep.width = "-15pt",
     # single.row = TRUE,
     font.size = "small",
-    omit = "Constant")
+    omit = "Constant",
+  notes= c('Models 1-4 include a random effect for Week Number by FIPS,',
+           'Models 3-4 include a random effect for Movement Signal by FIPS' ))
+
 ```
 
-```{r}
-pred <- ggpredict(google_h3, c("week_num", "movement_signal"))
-plot(pred)+ theme_minimal()
+```{r plot2, dependson='google_h3'}
+pred2 <- ggpredict(google_h3, c("week_num", "movement_signal")) %>% as_tibble()
+
+pred2 %>% 
+  mutate(group = case_when(group == 1 ~ "High",
+                           group == 0 ~ "Average",
+                           group == -1 ~ "Low"),
+         group = fct_relevel(group, c("Low", "Average", "High"))) %>% 
+ggplot(aes(x = x, y = predicted, color = group, fill = group)) + 
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high),
+              alpha = 0.5,
+              color = NA) + 
+    geom_line() + 
+ theme_minimal() + 
+  labs(title = 'Plot 4: Predicted Values of Stay at Home Rate', 
+                                   subtitle='Interaction of Week Number by Movement Signal',
+                                   x = "Week Number", 
+                                   y = "Stay at Home Rate (Change from Baseline)",
+                                   fill = "Movement Signal", 
+                                   color = "Movement Signal") +
+  scale_fill_manual(values=my_palette[1:3]) +
+  scale_color_manual(values=my_palette[1:3]) +
+  theme(plot.title.position = "plot")
 ```
 
 
-```{r}
-pred <- ggpredict(google_h4, c("movement_signal", "movement_assor"))
-plot(pred)+ theme_minimal()
+```{r plot3, dependson='google_h4'}
+pred3 <- ggpredict(google_h4, c("movement_signal", "movement_assor")) %>% as_tibble()
+pred3 %>% 
+  mutate(group = case_when(group == 1 ~ "Inconsistent",
+                           group == 0 ~ "Average",
+                           group == -1 ~ "Coherent"),
+         group = fct_relevel(group, c("Inconsistent", "Average", "Coherent"))) %>% 
+ggplot(aes(x = x, y = predicted, color = group, fill = group)) + 
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high),
+              alpha = 0.5,
+              color = NA) + 
+    geom_line() + 
+
+ theme_minimal() + 
+  labs(title = 'Plot 5: Predicted Values of Stay at Home Rate', 
+                                   subtitle='Interaction of Movement Signal by Movement Assortativity',
+                                   x = "Movement Signal",
+                                   y = "Stay at Home Rate (Change from Baseline)",
+                                   fill = "Movement\nAssortativity",
+                                   color = "Movement\nAssortativity") +
+  scale_fill_manual(values=my_palette[1:3]) +
+  scale_color_manual(values=my_palette[1:3]) +
+  theme(plot.title.position = "plot")
 ```
 
 
@@ -382,7 +462,7 @@ plot(pred)+ theme_minimal()
 
 ## Clean data
 
-```{r}
+```{r load_vacc}
 # source("data-cleaning.R")
 vacc <- read_csv(here("data", "vacc_main.csv"))  %>% 
   select(FIPS, date, vacc_rate, sci_prob_self, vacc_signal, vacc_assor,
@@ -469,7 +549,7 @@ i.e. model local infection against time in residence
 ```
 
 
-```{r vacc_h1}
+```{r vacc_h1, dependson='load_vacc'}
 
 vacc_h1 = lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over + 
                   income_med + unemployed_rate +
@@ -479,7 +559,7 @@ vacc_h1 = lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over +
              data = vacc,
              correlation = corAR1(), 
              control = lmeControl(opt = "optim"))
-summary(vacc_h1)
+# summary(vacc_h1)
 
 
 #The parameter phi is .99, which is a good indicator that adjacent time points
@@ -496,7 +576,7 @@ TODO Rephrase as community integreation NOT isolation, differnt concepts.
 
 i.e. add in % facebook friends in county against time in residence 
 
-```{r vacc_h2}
+```{r vacc_h2, dependson='load_vacc'}
 vacc_h2 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over + 
                   income_med + unemployed_rate +
                 trump_votes_2020 +rep_gov_2021 +  evangelical_county + fox_news+
@@ -505,10 +585,10 @@ vacc_h2 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over +
              data = vacc,
              correlation = corAR1(), 
              control = lmeControl(opt = "optim"))
-summary(vacc_h2)
-
-pred <- ggpredict(vacc_h2, c("week_num", "sci_prob_self"))
-plot(pred)
+# summary(vacc_h2)
+# 
+# pred <- ggpredict(vacc_h2, c("week_num", "sci_prob_self"))
+# plot(pred)
 
 # super strong negative correlation of community integration, or likelihood
 # people from the same county would be connected, indicating that the stronger
@@ -520,7 +600,7 @@ plot(pred)
 ## Hypothesis 3
 increase vaccine uptake by alters will have a positive effect on vaccine uptake for the ego-county
 
-```{r vacc_h3}
+```{r vacc_h3, dependson='load_vacc'}
 
 vacc_h3 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over + 
                   income_med + unemployed_rate +
@@ -530,10 +610,10 @@ vacc_h3 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over +
              data = vacc,
              correlation = corAR1(), 
              control = lmeControl(opt = "optim"))
-summary(vacc_h3)
-
-pred <- ggpredict(vacc_h3, c("week_num", "vacc_signal"))
-plot(pred)
+# summary(vacc_h3)
+# 
+# pred <- ggpredict(vacc_h3, c("week_num", "vacc_signal"))
+# plot(pred)
 
 #see a lot vaccinated, get vaccinated. see few vaccinated, don't vaccinate. 
 
@@ -545,33 +625,35 @@ Hypothesis 4 the effect of signal direction on time spent in residence and vacci
 i.e. 
 
 model average signal x assortativity against time in residence  
-```{r}
+```{r vacc_h4, dependson='load_vacc'}
 
 
 vacc_h4 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over + 
                   income_med + unemployed_rate +
                 trump_votes_2020 +rep_gov_2021 +  evangelical_county + fox_news+
                 case_rate + week_num + vacc_signal*vacc_assor +
-                 I_case_week + I_sign_week, 
+                 I_case_week + vacc_signal*week_num, 
              random = ~ week_num + vacc_signal| FIPS, 
              data = vacc,
              correlation = corAR1(), 
              control = lmeControl(opt = "optim"))
 
 
-summary(vacc_h4)
-pred <- ggpredict(vacc_h4, c("vacc_signal", "vacc_assor"))
-plot(pred)
+# summary(vacc_h4)
+# pred <- ggpredict(vacc_h4, c("vacc_signal", "vacc_assor"))
+# plot(pred)
 
 # see consitennt high signals, most likely to get vaccinated, see inconcisent signals but still high, less likely but still decently likely to raise vaccination rates. 
 ```
 
 
-```{r vacc-tables}
+```{r vacc-tables, dependson=c('vacc_h1','vacc_h1','vacc_h1','vacc_h1')}
+
 stargazer(
   vacc_h1, vacc_h2, vacc_h3, vacc_h4,
-  title="TABLE 2: Linear Mixed Effects Regression Results for Stay At Home Rates", 
-  dep.var.labels = "Stay at Home rate",
+  title="TABLE 2: Linear Mixed Effects Regression Results for Vaccination Rates", 
+  dep.var.labels = "Vaccination Rate (Percent)",
+   order=c(1,2,3,4,5,6,7,8,9,10,11,12,13,15,17,14,16),
   covariate.labels = c(
     "Percent White",
     "Percent College Graduates",
@@ -581,35 +663,78 @@ stargazer(
     "Percent of GOP votes",
     "GOP Governor, 2020",
     "Percent Evangelical Christian",
-    # "Fox News Interest",
+    "Fox News Interest",
     "Covid Case Rate",
     "Week Number",
-    "Community Integration",
-    "Movement Signal",
-    "movement assor",
     "Covid Case Rate x Week",
-    "Movement Signal x Week",
-    "Movement Signal x assor"),
+    "Community Integration",
+    "Vaccination Signal",
+    "Vaccination Signal x Week",
+    "Vaccination Assortativity",
+    "Vaccination Signal x Assortativity"),
     align = TRUE,
     # type = "html",
     type = "text",
     star.cutoffs = c(.05, .01, .001), 
     no.space = T, 
     digits = 2,
-    omit.stat = c("f", "ser", "rsq","adj.rsq"),
+    omit.stat = c("f", 'll', 'aic', 'bic',"ser", "rsq","adj.rsq"),
     column.sep.width = "-15pt",
     # single.row = TRUE,
     font.size = "small",
-    omit = "Constant")
+    omit = "Constant",
+  notes= c('Models 1-4 include a random effect for Week Number by FIPS,','Models 3-4 include a random effect for Vaccination Signal by FIPS' ))
 ```
 
-```{r}
-pred <- ggpredict(vacc_h3, c("week_num", "movement_signal"))
-plot(pred)+ theme_minimal()
+```{r fig4, dependson='vacc_h3'}
+pred4 <- ggpredict(vacc_h3, c("week_num", "vacc_signal")) %>% as_tibble()
+
+pred4 %>% 
+  mutate(group = case_when(group == 1 ~ "High",
+                           group == 0 ~ "Average",
+                           group == -1 ~ "Low"),
+         group = fct_relevel(group, c("Low", "Average", "High"))) %>% 
+ggplot(aes(x = x, y = predicted, color = group, fill = group)) + 
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high),
+              alpha = 0.5,
+              color = NA) + 
+    geom_line() + 
+ theme_minimal() + 
+  labs(title = 'Plot 4: Predicted Values of Vaccination Rate', 
+                                   subtitle='Interaction of Week Number by Vaccination Signal',
+                                   x = "Week Number", 
+                                   y = "Vaccination Rate (in Percent)",
+                                   fill = "Vaccination Signal", 
+                                   color = "Vaccination Signal") +
+  scale_fill_manual(values=my_palette[1:3]) +
+  scale_color_manual(values=my_palette[1:3]) +
+  theme(plot.title.position = "plot")
 ```
 
 
-```{r}
-pred <- ggpredict(vacc_h4, c("movement_signal", "movement_assor"))
-plot(pred)+ theme_minimal()
+```{r fig5, dependson='vacc_h4'}
+pred5 <- ggpredict(vacc_h4, c("vacc_signal", "vacc_assor")) %>% as_tibble()
+pred5 %>% 
+  mutate(group = case_when(group == 1 ~ "Inconsistent",
+                           group == 0 ~ "Average",
+                           group == -1 ~ "Coherent"),
+         group = fct_relevel(group, c("Inconsistent", "Average", "Coherent"))) %>% 
+ggplot(aes(x = x, y = predicted, color = group, fill = group)) + 
+  geom_ribbon(aes(ymin = conf.low,
+                  ymax = conf.high),
+              alpha = 0.5,
+              color = NA) + 
+    geom_line() + 
+
+ theme_minimal() + 
+  labs(title = 'Plot 5: Predicted Values of Vaccination Rate', 
+                                   subtitle='Interaction of Vaccination Signal by Vaccination Assortativity',
+                                   x = "Vaccination Signal",
+                                   y = "Vaccination Rate (in Percent)",
+                                   fill = "Vaccination\nAssortativity",
+                                   color = "Vaccination\nAssortativity") +
+  scale_fill_manual(values=my_palette[1:3]) +
+  scale_color_manual(values=my_palette[1:3]) +
+  theme(plot.title.position = "plot")
 ```
