@@ -50,7 +50,8 @@ sci_self <- sci %>%
 
 # drop from 10,413,529 vs 798,929 for memory help
 sci <- sci %>% 
-  filter(scaled_sci > 0.00001)
+  filter(scaled_sci > 0.00001,
+         user_loc != fr_loc ) # <- this is important to avoid using the ego data in their signals
 
 ```
 ```{r acs}
@@ -151,7 +152,7 @@ time_constant <- sci_self %>%
   inner_join(evangelical_county, by = "FIPS") # investigage why some missing cases here
 
 
-rm(list = c("sci_self", "count_to_state", "ACS", "votes", "gov", "evangelical_county"))
+rm(list = c("sci_self", "ACS", "votes", "gov", "evangelical_county"))
 ```
 
 # time varying
@@ -302,6 +303,8 @@ google <-
 
 write_csv(google, here("data", "google_intermediate.csv"))
 rm(list = c("overall_average_SAH"))
+
+beepr::beep()
 ```
 
 
@@ -335,8 +338,20 @@ rm(list = c("google", "fox_news_2020"))
 ```{r}
 vacc <- vroom(here("data","vaccination-rates", "COVID-19_Vaccinations_in_the_United_States_County.csv")) %>% 
   mutate(date = lubridate::mdy(Date, quiet = TRUE)) %>% 
-  select(FIPS, date, vacc_rate = Series_Complete_Pop_Pct) 
-
+  select(FIPS, date, vacc_rate = Series_Complete_Pop_Pct) %>% 
+  left_join(count_to_state, by = "FIPS") %>% 
+  filter(
+    #	Hawaii does not provide CDC with county-of-residence information.
+    # Texas provides data that are aggregated at the state level and cannot be
+    # stratified by county.
+    ! (state_code %in% c("HI", "TX")),
+    # Massachusetts does not provide vaccination data for Barnstable, Dukes, and
+    # Nantucket counties because of their small populations.
+    ! (FIPS %in% c('25001', '25007', '25019')),
+    # 	California does not report the county of residence for persons receiving
+    # 	a vaccine when the resident’s county has a population of fewer than
+    # 	20,000 people.
+    ! (FIPS %in% c("06003","06027", "06043", "06049", "06051", "06063", "06091", "06105")))
     # vacc %>%
     #   filter(FIPS == "06047") %>%
     #   ggplot(aes(x = date, y = vacc_rate)) + geom_line()
@@ -370,7 +385,6 @@ overall_average_vacc <- vacc %>%
   summarize(weekly_vacc_mean = mean(vacc_rate, na.rm = TRUE))
 
 vacc <-  vacc %>%                                         # vacc data
-  # filter(FIPS %in% c("53061", "06059", "17031", "39159", "49017", "25013")) %>%
   group_by(date) %>%                                          # group by date
   mutate(date_lag = date - 7) %>% 
   left_join(sci, by = c("FIPS" = "user_loc")) %>%             # merge in sci
@@ -389,7 +403,8 @@ vacc <-  vacc %>%                                         # vacc data
       # ggplot(aes(x = date, y = value, color = name)) + geom_line() + facet_wrap(~FIPS) + theme_classic()
 
 write_csv(vacc, here("data", "vacc_intermediate.csv"))
-rm(list = c("overall_average_vacc", "sci", "vacc"))
+rm(list = c("overall_average_vacc", "vacc"))
+beepr::beep()
 
 
 ```
@@ -411,7 +426,7 @@ vacc <- vroom::vroom( here("data", "vacc_intermediate.csv")) %>%
   left_join(distinct(time_constant), by = "FIPS") 
 # n = 138682
 vacc <- vacc %>% drop_na()
-# n = 129871
+# n = 118769
 ```
 merge in time varying
 ```{r vacc_merge_2}
@@ -423,7 +438,7 @@ vacc <- vacc %>%
 
 ## save vacc
 ```{r vacc_save}
-write_csv(vacc, here("data", "vacc_main.csv"))
-rm(list = c("sci", "time_constant", "LAUS", "vacc", "covid_rate", "fox_news_2021"))
+write_excel_csv(vacc, here("data", "vacc_main.csv"))
+# rm(list = c("sci", "time_constant", "LAUS", "vacc", "covid_rate", "fox_news_2021"))
 
 ```
