@@ -70,7 +70,7 @@ during early 2020 and b) vaccination rates during early 2021, both as responses
 to public health recommendations to mitigate the Covid-19 pandemic. Using
 theories of complex contagion, associative diffusion and the integrated
 theoretical framework of norms, I test how these health behaviors are outcomes
-of contagion and assortativity, signals, community integration, and other
+of contagion and discordance of signals, community integration, and other
 factors affecting associations like religious and political conservatism, and
 attention to television media sources, and online norms as measured by
 information-search behaviors. The data for this article derives from a unique
@@ -154,9 +154,10 @@ behavior. Like Axelrod (-@axelrodDisseminationCultureModel1997) this outlines
 how the of local convergence of close network actors becomes amplified and can
 lead to global polarization between groups.
 
+<!-- TODO needs updated, make sure paragraph on complex contagion is here -->
 There are many other theoretical mechanisms that lead to the establishment of
 diverse behavioral norms. Some I won’t discuss here include network isolation
-(Kitts and Shi 2018:6) and assortativity of network signals / complex contagion
+(Kitts and Shi 2018:6) and discordance of network signals / complex contagion
 (Centola and Macy 2007; Houghton 2021; Rivera, Soderstrom, and Uzzi 2010). These
 will receive a full review in the full paper, but are not central to the framing
 of establishment of norms for this proposal.
@@ -187,7 +188,7 @@ in time spent in residence.
 
 (@) _Hypothesis 2_ Having a low percent of Facebook friends living outside of the county will not lead to an increase in time spent in residence and decrease in vaccine uptake.
 
-### Assortativity and Behavioral Reinforcement: 
+### Complex Contagion and Discordance: 
 @centola_macy07 theorize that simple contagions are not enough to spread
 behavioral change. Simple contagions are those in which only one point of
 contact is needed to receive contagion, like with infectious disease or to
@@ -357,7 +358,7 @@ google %>%
             "Week Number",
             "Community Integration",
             "Movement Signal",
-            "Movement Assortativity"),
+            "Movement Discordance"),
           # type = "text", 
           summary = TRUE,
           rownames = TRUE,
@@ -423,7 +424,7 @@ vacc %>%
             "Week Number",
             "Community Integration",
             "Vaccination Signal",
-            "Vaccination Assortativity"),
+            "Vaccination Discordance"),
           # type = "text",
           summary = TRUE,
           rownames = TRUE,
@@ -486,29 +487,29 @@ the ego-county.
 
 
 
-### movement assortativity
+### Movement Discordance
 
 To do this, I will limit the ego-network of each county to .70 or above
 likelihood of friendship connections, regardless of geographic distance between
-counties. I will then develop an _assortativity_ coefficient for each county to
+counties. I will then develop an Discordance coefficient for each county to
 indicate the extent to which a given ego-network is receive diverse contagion
 signals akin to @pachucki_leal20. While assortative mixing is generally a
-measure used in research on homophily, in this case a low assortativity
-coefficient is indicative of diverse signals, whereas high assortativity
+measure used in research on homophily, in this case a low Discordance
+coefficient is indicative of diverse signals, whereas high Discordance
 coefficient would indicate reinforced signaling which I theorize to be akin to
 complex contagion [@centola_macy07;@bojanowski_corten14].
 
-While _assortativity_ is important to measure the reinforcement of movement
+While Discordance is important to measure the reinforcement of movement
 signaling, the direction of these signals also matters. In other words, the
 signals the ego-county receives from other counties may be reinforced (high
-assortativity coefficient) to stay at home (positive dependent variable) or may
-be reinforced (high assortativity coefficient) to remain as normal (near zero or
+Discordance coefficient) to stay at home (positive dependent variable) or may
+be reinforced (high Discordance coefficient) to remain as normal (near zero or
 negative dependent variable).  _Signal-direction_ will be calculated taking an
 average change in time in residences of each for each member of the ego network
 with .70 or above likelihood of friendship connections to the ego.
 
 
-```{r assortativity_extra_data_load}
+```{r discordance_extra_data_load}
 sample = c("08003", '55057', '51059', '39085', 
            # '36119',
            '34021', '12071', '04017' )
@@ -524,7 +525,7 @@ count_to_state <- read_csv("https://raw.githubusercontent.com/kjhealy/fips-codes
 ```
 
 
-```{r assortativity-google, dependson='load_google', include=FALSE, eval = FALSE}
+```{r assortativity-google, dependson=c('load_google','discordance_extra_data_load'), include=FALSE, eval = FALSE}
 
 plot1a_data <- google %>% 
   dplyr::filter(date == lubridate::ymd("2020-04-06")) %>%
@@ -559,8 +560,8 @@ plot1a <- ggplot() +
         plot.title = element_text(size=10)) +
   scale_fill_manual(values=my_palette[1:7]) +
   scale_color_manual(values=my_palette[1:7]) +
-  labs(title = 'Scatterplot of Signals and Assortativity with 7 counties highlighted',
-       x = 'Stay at Home Signals', y = 'Signal Assortativity')
+  labs(title = 'Scatterplot of Signals and Discordance with 7 counties highlighted',
+       x = 'Stay at Home Signals', y = 'Signal Discordance')
 
 plot1b_data <- vroom::vroom(here("data","covid-mobility", "2020_US_Region_Mobility_Report.csv"), 
                             show_col_types = FALSE)  %>% 
@@ -617,7 +618,7 @@ plot1b <- plot1b_data %>%
 
 ```
 
-```{r assortativity-vacc, cache = TRUE, fig.cap = 'How Signal Mean and Signal Assortativity are Measured'}
+```{r assortativity-vacc, dependson=c('load_vacc','discordance_extra_data_load'), cache = TRUE, fig.cap = 'How Signal Mean and Signal Assortativity are Measured'}
 
 plot1c_data <- vacc %>% 
   dplyr::filter(date == lubridate::ymd("2021-04-26")) %>%
@@ -652,8 +653,8 @@ plot1c <- ggplot() +
         plot.title = element_text(size=10)) +
   scale_fill_manual(values=my_palette[1:7]) +
   scale_color_manual(values=my_palette[1:7]) +
-  labs(title = 'Scatterplot of Signals and Assortativity with 7 counties highlighted',
-       x = 'Vaccination Signals', y = 'Signal Assortativity')
+  labs(title = 'Scatterplot of Signals and Discordance with 7 counties highlighted',
+       x = 'Vaccination Signals', y = 'Signal Discordance')
 
 plot1d_data <- tibble(FIPS = sample, date = lubridate::ymd("2021-04-26")) %>% 
   dplyr::mutate(date_lag = date - 7) %>% 
@@ -685,7 +686,7 @@ plot1d <- plot1d_data %>%
         plot.subtitle = element_text(size = 8)) +
   labs(x = 'Vaccination Signals', y = '',
        title = 'Weighted Densities of Vaccination Signals per county with weighted average and standard deviation highlighted',
-       subtitle = 'Colored Point = Weighted average; Grey line = Weighted SD, Assortativity',
+       subtitle = 'Colored Point = Weighted average; Grey line = Weighted SD, Discordance',
        caption = 'Densities Weighted by likelihood of Facebook Friendship connection')  +
   scale_fill_manual(values=my_palette[1:7]) +
   scale_color_manual(values=my_palette[1:7]) 
@@ -921,8 +922,8 @@ where $u_{0i}$represents the total residual decomposed into county-specific time
 
 $$
 \begin{aligned}
-inresidence_{it} = assortativity_{it}\beta_{1}+signaldirection_{it}\beta_{2}+ \\
-... coronacases_{it}\beta_{3}+assort\times signal_{it}\beta_{4}+x_{it}\beta_{5}...+u_{0i}+\epsilon_{it}
+inresidence_{it} = Discordance_{it}\beta_{1}+signaldirection_{it}\beta_{2}+ \\
+... coronacases_{it}\beta_{3}+Discordance\times signal_{it}\beta_{4}+x_{it}\beta_{5}...+u_{0i}+\epsilon_{it}
 \end{aligned}
 $$
 
@@ -961,8 +962,8 @@ stargazer(
   #   "Community Integration",
   #   "Movement Signal",
   #   "Movement Signal x Week",
-  #   "Movement Assortativity",
-  #   "Movement Signal x Movement Assortativity"),
+  #   "Movement Discordance",
+  #   "Movement Signal x Movement Discordance"),
   align = TRUE,
   # type = "html",
   # type = "text",
@@ -1036,19 +1037,19 @@ See Figure \@ref(fig:plot-google-h3).
 ```{r plot-google-h4, dependson='google_h4', cache = TRUE, fig.cap='Predicted Values of Stay at Home Rate Moderated', out.width="100%"}
 pred3 <- ggpredict(google_h4, c("movement_signal", "movement_assor")) %>% as_tibble()
 pred3 <- pred3 %>% 
-  mutate(group = case_when(group == 1 ~ "Inconsistent",
+  mutate(group = case_when(group == 1 ~ "Discordance",
                            group == 0 ~ "Average",
-                           group == -1 ~ "Consistent"),
-         group = fct_relevel(group, c("Inconsistent", "Average", "Consistent"))) %>% 
+                           group == -1 ~ "Concordance"),
+         group = fct_relevel(group, c("Discordance", "Average", "Concordance"))) %>% 
   ggplot(aes(x = x, y = predicted, color = group, fill = group)) + 
   geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.5, color = NA) + 
   geom_line() + 
   theme_minimal() + 
-  labs(subtitle='Interaction of Movement Signal by Movement Assortativity',
+  labs(subtitle='Interaction of Movement Signal by Movement Discordance',
        x = "Movement Signal",
        y = "Stay at Home Rate (Change from Baseline)",
-       fill = "Movement\nAssortativity",
-       color = "Movement\nAssortativity") +
+       fill = "Movement\nDiscordance",
+       color = "Movement\nDiscordance") +
   scale_fill_manual(values=my_palette[1:3]) +
   scale_color_manual(values=my_palette[1:3]) +
   theme(plot.title.position = "plot")
@@ -1057,12 +1058,12 @@ ggsave(filename = here('figs/plot-google-h4.png'), pred3)
 
 knitr::include_graphics(here('figs/plot-google-h4.png'))
 ```
-4. Hypothesis 4 the effect of signal direction on time spent in residence will be moderated by diversity in signals (assortativity)
+4. Hypothesis 4 the effect of signal direction on time spent in residence will be moderated by diversity in signals (Discordance)
 
-high assortativity = completely moderates the social influence effect
-low assortativity , condensed signal = allows for social influence to have an effect
+high Discordance = completely moderates the social influence effect
+low Discordance , condensed signal = allows for social influence to have an effect
 
-High signal assortativity moderates the effects of the signal. Explicitly, if
+High signal Discordance moderates the effects of the signal. Explicitly, if
 a county is receiving a wide array of low and high signals, their stay at home
 rates won't be affected. When a signal is concentrated or in agreement, the
 theoretical effect of movement signaling on the ego are the strongest.
@@ -1094,8 +1095,8 @@ stargazer(
     "Community Integration",
     "Vaccination Signal",
     "Vaccination Signal x Week",
-    "Vaccination Assortativity",
-    "Vaccination Signal x Assortativity"),
+    "Vaccination Discordance",
+    "Vaccination Signal x Discordance"),
     align = TRUE,
     # type = "html",
     # type = "text",
@@ -1161,20 +1162,20 @@ See Figure \@ref(fig:plot-vacc-h3).
 ```{r plot-vacc-h4, dependson='vacc_h4', cache = TRUE, fig.cap='Predicted Values of Vaccination Rate', out.width="100%"}
 pred5 <- ggpredict(vacc_h4, c("vacc_signal", "vacc_assor")) %>% as_tibble()
 pred5<-pred5 %>% 
-  mutate(group = case_when(group == 1 ~ "Inconsistent",
+  mutate(group = case_when(group == 1 ~ "Discordance",
                            group == 0 ~ "Average",
-                           group == -1 ~ "Consistent"),
-         group = fct_relevel(as.factor(group), c("Inconsistent", "Average", "Consistent"))) %>% 
+                           group == -1 ~ "Concordance"),
+         group = fct_relevel(as.factor(group), c("Discordance", "Average", "Concordance"))) %>% 
 ggplot(aes(x = x, y = predicted, color = group, fill = group)) + 
   geom_ribbon(aes(ymin = conf.low,ymax = conf.high),alpha = 0.5,color = NA) + 
     geom_line() + 
 
  theme_minimal() + 
-  labs(subtitle='Interaction of Vaccination Signal by Vaccination Assortativity',
+  labs(subtitle='Interaction of Vaccination Signal by Vaccination Discordance',
                                    x = "Vaccination Signal",
                                    y = "Vaccination Rate (in Percent)",
-                                   fill = "Vaccination\nAssortativity",
-                                   color = "Vaccination\nAssortativity") +
+                                   fill = "Vaccination\nDiscordance",
+                                   color = "Vaccination\nDiscordance") +
   scale_fill_manual(values=my_palette[1:3]) +
   scale_color_manual(values=my_palette[1:3]) +
   theme(plot.title.position = "plot")
@@ -1184,9 +1185,9 @@ ggsave(filename = here('figs/plot-vacc-h4.png'), pred5)
 knitr::include_graphics(here('figs/plot-vacc-h4.png'))
 ```
 
-4. Hypothesis 4 the effect of signal direction vaccine uptake will be moderated by diversity in signals (assortativity)
+4. Hypothesis 4 the effect of signal direction vaccine uptake will be moderated by diversity in signals (Discordance)
 
-see consitennt high signals, most likely to get vaccinated, see inconsistent signals but still high, less likely but still decently likely to raise vaccination rates. 
+see consistent high signals, most likely to get vaccinated, see inconsistent signals but still high, less likely but still decently likely to raise vaccination rates. 
 See Figure \@ref(fig:plot-vacc-h4).
 
 \newpage
