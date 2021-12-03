@@ -9,7 +9,7 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-pacman::p_load(tidyverse, vroom, readxl, here, tidycensus, zoo, radiant.data)
+pacman::p_load(tidyverse, vroom, readxl, here, tidycensus, zoo)
 
 # county to state
 count_to_state <- read_csv("https://raw.githubusercontent.com/kjhealy/fips-codes/master/county_fips_master.csv") %>% 
@@ -56,7 +56,7 @@ sci <- sci %>%
 ```
 ```{r acs}
 # load ACS demographic data
-# tidycensus::census_api_key("f935b09a686615286d59db38597c6730e7079760", overwrite = TRUE, install = TRUE)
+tidycensus::census_api_key("f935b09a686615286d59db38597c6730e7079760", overwrite = TRUE, install = TRUE)
 
 # v19 <- load_variables(2019, "acs5", cache = TRUE)
 # v19_p <- load_variables(2019, "acs5/profile", cache = TRUE)
@@ -223,20 +223,10 @@ dma <- dma %>%
   full_join(dma_key)
 # 
 fox_news_2020 <- read_csv(here("data","trends","fox_dma_2020.csv")) %>%
-  mutate(location = str_to_upper(location),
-         location = str_replace_all(location,"-", " - "),
-         location = str_replace_all(location,",", ""),
-         location = str_replace_all(location,"\\s(\\w{2})\\b", " \\(\\1\\)")) %>% 
-  select(DMA_google = location, fox_news = hits_transformed_a, date) %>% 
   full_join(dma, by = "DMA_google") %>%
   select(fox_news, date, FIPS)
 
 fox_news_2021 <- read_csv(here('data','trends','fox_dma_2021.csv')) %>%
-  mutate(location = str_to_upper(location),
-         location = str_replace_all(location,"-", " - "),
-         location = str_replace_all(location,",", ""),
-         location = str_replace_all(location,"\\s(\\w{2})\\b", " \\(\\1\\)")) %>% 
-  select(DMA_google = location, fox_news = hits_transformed_a, date) %>% 
   full_join(dma, by = "DMA_google")  %>%
   select(fox_news, date, FIPS)
 
@@ -249,13 +239,17 @@ fox_news_2021 <- read_csv(here('data','trends','fox_dma_2021.csv')) %>%
 ## Dependent variable
 
 ```{r}
-google <- vroom(here("data","covid-mobility", "2020_US_Region_Mobility_Report.csv"))  %>% 
+google <- vroom::vroom(here("data","covid-mobility", "2020_US_Region_Mobility_Report.csv"))  %>%
   drop_na(census_fips_code) %>% 
   select(date, FIPS = census_fips_code, SAH = residential_percent_change_from_baseline) %>% 
   filter(!is.na(FIPS)) %>%
+  complete(date, FIPS)  %>% 
   group_by(FIPS) %>%
-  mutate(SAH = tidyr::replace_na(SAH, 0),
-         SAH = zoo::rollmean(SAH, k = 7, fill = NA),
+  mutate(sumNA = sum(ifelse(is.na(SAH), 1, 0))) %>% 
+  filter(sumNA < 200) %>% 
+  fill(SAH, .direction = 'downup') %>%
+  filter(!is.na(SAH)) 
+  mutate(SAH = zoo::rollmean(SAH, k = 7, fill = NA),
          wday = lubridate::wday(date, label=TRUE)) %>% 
   filter(wday == "Mon",
          !is.na(SAH)) %>% 
@@ -274,7 +268,19 @@ merge_alter_movement <- function(data) {
                    c("date_lag" = "date")))
 }
 weight_avg_move <- function(df) weighted.mean(df$SAH, w = df$scaled_sci, na.rm = TRUE)
-weight_sd_move <- function(df) radiant.data::weighted.sd(df$SAH, wt = df$scaled_sci, na.rm = TRUE)
+
+
+weighted.sd <- function(x, wt, na.rm = TRUE) {
+    if (na.rm) {
+        ind <- is.na(x) | is.na(wt)
+        x <- x[!ind]
+        wt <- wt[!ind]
+    }
+    wm <- weighted.mean(x, wt)
+    sqrt(sum(wt * (x - wm)^2) / sum(wt))
+}
+
+weight_sd_move <- function(df) weighted.sd(df$SAH, wt = df$scaled_sci, na.rm = TRUE)
 
 overall_average_SAH <- google %>% 
   dplyr::group_by(date) %>% 
@@ -356,9 +362,10 @@ vacc <- vroom(here("data","vaccination-rates", "COVID-19_Vaccinations_in_the_Uni
     #   filter(FIPS == "06047") %>%
     #   ggplot(aes(x = date, y = vacc_rate)) + geom_line()
 
+
 vacc <- vacc %>% 
   group_by(FIPS) %>%
-  mutate(vacc_rate_ = zoo::na.approx(vacc_rate, na.rm = TRUE),
+  mutate(vacc_rate = zoo::na.approx(vacc_rate, na.rm = TRUE),
          vacc_rate = zoo::rollmean(vacc_rate, k = 7, fill = NA),
          wday = lubridate::wday(date, label=TRUE)) %>% 
   filter(wday == "Mon",
@@ -371,7 +378,7 @@ vacc <- vacc %>%
 ```{r}
 # weighted_mean_movement_signal   
 weight_avg_vacc <- function(df) weighted.mean(df$vacc_rate, w = df$scaled_sci, na.rm = TRUE)
-weight_sd_vacc <- function(df) radiant.data::weighted.sd(df$vacc_rate, wt = df$scaled_sci, na.rm = TRUE)
+weight_sd_vacc <- function(df) weighted.sd(df$vacc_rate, wt = df$scaled_sci, na.rm = TRUE)
 
 merge_alter_vacc <- function(data) {
   left_join(x = data, 
