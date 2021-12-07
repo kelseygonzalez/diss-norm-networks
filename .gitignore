@@ -3,11 +3,8 @@
 .RData
 .Ruserdata
 data/
+figs/
 assortativity/
 readings/
 modeling_files/
 modeling_cache/
-*.rdx
-*.rdb
-*.RData
-*.rdb
