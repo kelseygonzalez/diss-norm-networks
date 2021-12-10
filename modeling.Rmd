@@ -90,25 +90,43 @@ longitudinal data set that I compiled from Google, the CDC, Facebook and other
 sources. To model mobility and vaccination rates, I linear mixed effects models
 with random effects as a longitudinal model of contagion.
 
+# TODO
+to cite:
+- [@wimmerDomainsDiffusionHow2021]
+- vaccine misinformation [@mottaRepublicansNotDemocrats2021; @mottaIdentifyingPrevalenceCorrelates2021]
+- Association Between What People Learned About COVID-19 Using Web Searches and Their Behavior Toward Public Health Guidelines: Empirical Infodemiology Study [@akpanAssociationWhatPeople2021]
+- Politicization of Science in the Public Sphere: A Study of Public Trust in the United States, 1974 to 2010 [@gauchatPoliticizationSciencePublic2012]
+
+
+
+
 # Background
 After spreading around the world in a matter of months, the coronavirus
-(COVID-19) has become a leading cause of death in the United States. Although
-the Centers for Disease Control and Prevention
-(CDC)[-@centersfordiseasecontrolandprevention20] have proposed several potential
-mitigation strategies, the  method of mitigation that has received the most
-national attention is the call to stay-at-home for non-essential workers. CDC
-officials and frontline health care professionals advise that the best way to
-prevent exposure to the virus is to stay at home and avoid close contact with
-people. 
-<!-- TODO needs udpated -->
-__If staying at home is so important for slowing the spread of the
-coronavirus, we must begin to consider the social patterning of mobility (i.e.,
-how far people are traveling in their daily lives) and time spent in residence
-(i.e., how much time is spent isolated from other people). While staying at home
-is not an option for some members of society due to employment, most people have
-the ability to stay at home. The fundamental question is whether the choice to
-stay at home varies by certain populations and whether this behavior is socially
-contagious.__
+(COVID-19) became a leading cause of death in the United States. Although the
+Centers for Disease Control and Prevention(CDC)
+[-@centersfordiseasecontrolandprevention20] proposed several potential
+mitigation strategies, the method of mitigation that received the most national
+attention is the call to stay-at-home and social distance for non-essential
+workers. CDC officials and frontline health care professionals advise that the
+best way to prevent exposure to the virus is to stay at home and avoid close
+contact with people.
+
+A second strategy pushed by the CDC, once available, was to receive vaccination
+to prevent the effects of the Covid-19 virus if infected. Vaccinations like
+Pfizer-BioNTech (Comirnaty, tozinameran, BNT162b2), and  Janssen/Johnson &
+Johnson, Moderna (mRNA-1273) started receiving approved for emergency use
+authorization by the United States Food and Drug Administration (FDA) in
+December 2020.
+
+Although these public health interventions were pushed by policy makers
+throughout 2020 and 2021, policy makers often struggle to promote public
+adoption of policies that rely on the publics' willingness to adjust their
+current 'risky' behaviors to less-risk behaviors based on scientific facts. The
+lack of adaption to newly recommended behaviors is partially due to the
+variation in the levels of understanding of the threats of the disease
+[@bailey_etal20], but it is also due to the current norms that are already in
+place. TODO: discuss norms, how it's hard to diverge from current norms, habitus 
+<!-- TODO -->
 
 
 There is little research on shelter-in-place or stay-at-home rates, especially
@@ -125,7 +143,7 @@ dynamic nature of population mobility across population networks.
 
 There is more research on vaccine uptake
 [@schmidBarriersInfluenzaVaccination2017] because of increased hesitancy and
-anti-vaccination movements [@baumgaertnerInfluencePoliticalIdeology2018;
+anti-vaccination movements over previous decades [@baumgaertnerInfluencePoliticalIdeology2018;
 @hornseyDonaldTrumpVaccination2020; @johnsonOnlineCompetitionPro2020;
 @whiteheadHowCultureWars2020], even using methods such as social network
 analysis [@milaniVisualVaccineDebate2020]. However, using both population
@@ -148,7 +166,6 @@ interaction ultimately leads to converged communities of belief structures with
 variations in divergence from the norm [@okadaStructureCulturalRejection2017;
 @lataneExperimentalEvidenceDynamic1996;
 @cullumCulturalEvolutionInterpersonal2007].
-
 
 "Culture" diffuses through communities and social networks. Information and
 opinions spread [@klarEffectNetworkStructure2017; @bondpolmob;
@@ -174,15 +191,13 @@ behavior. Like Axelrod [-@axelrodDisseminationCultureModel1997] this outlines
 how the of local convergence of close network actors becomes amplified and can
 lead to global polarization between groups.
 
-Write a sentence about [@bailey_etal20]
+- Write a sentence about [@bailey_etal20] 'We  show  that  social  network  exposure  to  COVID-19  cases  shapes  individuals’  beliefs  and  behaviors concerning the coronavirus.'
 
-<!-- TODO needs updated, make sure paragraph on complex contagion is here -->
-There are many other theoretical mechanisms that lead to the establishment of
-diverse behavioral norms. Some I won’t discuss here include network isolation
-(Kitts and Shi 2018:6) and discordance of network signals / complex contagion
-(Centola and Macy 2007; Houghton 2021; Rivera, Soderstrom, and Uzzi 2010). These
-will receive a full review in the full paper, but are not central to the framing
-of establishment of norms for this proposal.
+Outdated models found in early public health research claim that information
+about the risks of behaviors will lead to changes in behaviors to mitigate those
+said risks (TODO CITE). However, while this model can be valid in specific
+cases, more research has shown how the risks themselves do little to motivate
+behavioral change (TODO CITE).
 
 (@) _Hypothesis 1_ Relatively higher local rates of infection will lead to increased time spent in residence and increase vaccination uptake
 
@@ -206,23 +221,25 @@ orders. Because disconnected communities are resistant to policy change and
 mistrust the central government, I theorize that there will not be an increase
 in time spent in residence.
 
-cite @gibbons_etal21
 <!-- TODO needs udpated, focus on community integration and acceptance of new norms instead -->
+cite @gibbons_etal21
 
-
-(@) _Hypothesis 2_ Having a low percent of Facebook friends living outside of the county will not lead to an increase in time spent in residence and decrease in vaccine uptake.
+(@) _Hypothesis 2_ Being connected  Facebook friends living outside of the county will not lead to an increase in time spent in residence and decrease in vaccine uptake.
 
 ### Complex Contagion and Discordance: 
 @centolaComplexContagionsWeakness2007 theorize that simple contagions are not
-  enough to spread behavioral change. Simple contagions are those in which only
-  one point of contact is needed to receive contagion, like with infectious
-  disease or to learn simple bits of information.
-  @centolaComplexContagionsWeakness2007's large contribution was the theorizing
-  of complex contagions, those that require "independent affirmation or
-  reinforcement from multiple sources" (p 703) and is not based on the number of
-  exposures but the number of sources of exposure. In the case of behavioral
-  contagion, this means that the behavior must be reinforced through witnessing
-  multiple alters perform this behavior before contagion can take effect.
+enough to spread behavioral change. Simple contagions are those in which only
+one point of contact is needed to receive contagion, like with infectious
+disease or to learn simple bits of information.
+@centolaComplexContagionsWeakness2007's large contribution was the theorizing
+of complex contagions, those that require "independent affirmation or
+reinforcement from multiple sources" (p 703) and is not based on the number of
+exposures but the number of sources of exposure. In the case of behavioral
+contagion, this means that the behavior must be reinforced through witnessing
+multiple alters perform this behavior before contagion can take effect.
+  
+  
+TODO Cite [@houghtonSocialContagionInteracting2021] in here somewhere
 
 In the case of stay-at-home rates or vaccination rates, this theoretically means
 that a person exposed to many sources of the same signal (high, medium, low
@@ -858,7 +875,7 @@ from the U.S. Bureau of Labor Statistics [@labor2020a].
 
 ## Modeling Prodecures
 
-```{r google_models2, dependson='load_google', cache = TRUE}
+```{r google_models, dependson='load_google', cache = TRUE}
 google <- google %>% 
   mutate(across(SAH:covid_conspiracy , ~ scale(.x, center=TRUE, scale=TRUE)))
 
@@ -958,128 +975,15 @@ vacc_h4 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over +
                   income_med + unemployed_rate +
                 trump_votes_2020 + evangelical_county + 
                  fox_news + covid_19_vaccine  + covid_conspiracy +
-                case_rate + vacc_signal*week_num + vacc_signal*vacc_assor, 
+                case_rate + vacc_signal*week_num + vacc_signal + vacc_assor, 
              random = ~ (1 + vacc_signal) | FIPS, 
              data = vacc,
              correlation = corAR1(), 
-             control = lmeControl(opt = "nlminb",
+             control = lmeControl(opt = "optim",
                                   maxIter = 1e8, msMaxIter = 1e8))
 ```
 
 
-```{r google_models, dependson='load_google', cache = TRUE}
-google <- google %>% 
-  mutate(across(SAH:fox_news, ~ scale(.x, center=TRUE, scale=TRUE)))
-
-google_h1 = lme(fixed = SAH ~ p_white + p_college + perc_65_over + 
-                  income_med + unemployed_rate +
-               trump_votes_2016 +  evangelical_county + fox_news+
-                 case_rate + week_num, 
-             random = ~ 1 | FIPS, 
-             data = google,
-             correlation = corAR1(), 
-             control = lmeControl(opt = "optim"))
-
-google_h2 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over + 
-                  income_med + unemployed_rate +
-               trump_votes_2016 +   evangelical_county + fox_news+
-                case_rate + week_num + sci_prob_self, 
-             random = ~ 1 | FIPS, 
-             data = google,
-             correlation = corAR1(), 
-             control = lmeControl(opt = "optim"))
-
-google_h3 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over + 
-                  income_med + unemployed_rate +
-               trump_votes_2016 +  evangelical_county + fox_news+
-               case_rate + week_num + movement_signal*week_num, 
-             random = ~ (1 + movement_signal) | FIPS, 
-             data = google,
-             correlation = corAR1(), 
-             control = lmeControl(opt = "optim"))
-
-google_h4 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over +
-                  income_med + unemployed_rate +
-               trump_votes_2016 + evangelical_county + fox_news+
-                 case_rate + week_num + 
-                 movement_signal*week_num +
-                 movement_signal*movement_assor, 
-             random = ~ (1 + movement_signal) | FIPS, 
-             data = google,
-             correlation = corAR1(), 
-             control = lmeControl(opt = "optim"))
-
-```
-
-```{r vacc_models, dependson='load_vacc', cache = TRUE}
-
-# source("data-cleaning.R")
-vacc <- read_csv(here("data", "vacc_main.csv"), show_col_types = FALSE)  %>% 
-  select(FIPS, date, vacc_rate, sci_prob_self, vacc_signal, vacc_assor,
-         case_rate, p_white, p_black, p_college, p_hispanic,
-         perc_65_over, unemployed_rate, income_med, population,
-         trump_votes_2020, evangelical_county, fox_news) %>%
-  drop_na() %>% 
-    mutate(week_num = as.numeric((date - lubridate::ymd("2020-03-02")) / 7),
-           across(vacc_rate:fox_news, ~(scale(.x, scale = TRUE, center = TRUE)))) 
-
-# vacc %>% 
-#   select(where(is.numeric)) %>% 
-#   cor() %>%  
-#   round(2) %>%
-#   as.data.frame() %>% 
-#   tibble::rownames_to_column("row") %>%
-#   pivot_longer(cols = -row) %>% 
-#   ggplot(aes(x = row, y = name, fill = value)) + 
-#   geom_tile() + geom_text(aes(label = value)) + 
-#   theme(axis.text.x = element_text(angle = 45))
-
-vacc <- vacc %>% 
-  select(FIPS, date, vacc_rate, p_white, p_college, perc_65_over, 
-         income_med, unemployed_rate,evangelical_county, 
-         trump_votes_2020, fox_news, case_rate, 
-         week_num, sci_prob_self,vacc_signal,vacc_assor) %>% 
-  mutate(across(vacc_rate:fox_news, ~(scale(.x, scale = TRUE, center = TRUE)))) 
-
-
-vacc_h1 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over + 
-                  income_med + unemployed_rate +
-                 evangelical_county + trump_votes_2020 + fox_news+
-               case_rate + week_num, 
-             random = ~ 1 | FIPS, 
-             data = vacc,
-             correlation = corAR1(), 
-             control = lmeControl(opt = "optim"))
-
-vacc_h2 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over + 
-                  income_med + unemployed_rate +
-                trump_votes_2020 + evangelical_county + fox_news+
-               case_rate + week_num + sci_prob_self, 
-             random = ~ 1 | FIPS, 
-             data = vacc,
-             correlation = corAR1(), 
-             control = lmeControl(opt = "optim"))
-
-# vacc_h3 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over + 
-#                   income_med + unemployed_rate +
-#                 trump_votes_2020 + evangelical_county + fox_news+
-#                 case_rate + vacc_signal*week_num, 
-#              random = ~ (1 + vacc_signal) | FIPS, 
-#              data = vacc,
-#              correlation = corAR1(), 
-#              control = lmeControl(opt = "optim"))
-vacc_h3 <- read_rds("modeling_cache/vacc_h3.rds")
-
-
-vacc_h4 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over + 
-                  income_med + unemployed_rate +
-                trump_votes_2020 + evangelical_county + fox_news+
-                case_rate + vacc_signal*week_num + vacc_signal*vacc_assor, 
-             random = ~ (1 + vacc_signal) | FIPS, 
-             data = vacc,
-             correlation = corAR1(), 
-             control = lmeControl(opt = "optim"))
-```
 
 Descriptive statistics for the stay-at-home rate model can be found in Table \@ref(tab:google-desc-table). Descriptive statistics for the vaccination uptake model can be found in Table \@ref(tab:vacc-desc-table). 
 
