@@ -51,7 +51,7 @@ count_to_state <- read_csv("https://raw.githubusercontent.com/kjhealy/fips-codes
 # source("data-cleaning.R")
 google <- read_csv(here("data", "google_movement_main.csv"), show_col_types = FALSE)  %>% 
   drop_na() %>% 
-  select(FIPS, date, SAH, movement_assor, sci_prob_self, movement_signal, 
+  select(FIPS, date, SAH, movement_assor, movement_signal, 
          case_rate, p_white, p_black, p_college, p_hispanic,
          perc_65_over, unemployed_rate, income_med, 
          trump_votes_2016, evangelical_county, 
@@ -62,7 +62,7 @@ google <- read_csv(here("data", "google_movement_main.csv"), show_col_types = FA
 ```{r load_vacc}
 # source("data-cleaning.R")
 vacc <- read_csv(here("data", "vacc_main.csv"), show_col_types = FALSE)  %>% 
-  select(FIPS, date, vacc_rate, sci_prob_self, vacc_signal, vacc_assor,
+  select(FIPS, date, vacc_rate, vacc_signal, vacc_assor,
          case_rate, p_white, p_black, p_college, p_hispanic,
          perc_65_over, unemployed_rate, income_med, population,
          trump_votes_2020, evangelical_county, 
@@ -82,7 +82,7 @@ during early 2020 and b) vaccination rates during early 2021, both as responses
 to public health recommendations to mitigate the Covid-19 pandemic. Using
 theories of complex contagion, associative diffusion and the integrated
 theoretical framework of norms, I test how these health behaviors are outcomes
-of contagion and discordance of signals, community integration, and other
+of contagion and discordance of signals, and other
 factors affecting associations like religious and political conservatism, and
 attention to television media sources, and online norms as measured by
 information-search behaviors. The data for this article derives from a unique
@@ -202,26 +202,6 @@ behavioral change (TODO CITE).
 (@) _Hypothesis 1_ Relatively higher local rates of infection will lead to increased time spent in residence and increase vaccination uptake
 
 
-
-### Network Isolation
-
-<!-- TODO needs udpated -->
-
-The most basic component of a network that can be measured is degree, or number
-of connections an ego has. In this case, a lack of connections between counties
-indicates a more isolated community. A lack of geographically diverse
-friendships (i.e. low geographic social connectedness) may indicate isolation,
-rurality and possibly insular culture. Though rural communities are unlikely to
-be isolated from mainstream urban cultural and economic influences
-[@lichter2011rural], disconnected rural communities are notably resistant to
-policy interventions and are often mistrusting of the federal government
-[@lichter2008race; @partridge2006geography]. The guiding question of this paper
-looks to investigate the choice to adhere to government mandated stay at home
-orders. Because disconnected communities are resistant to policy change and
-mistrust the central government, I theorize that there will not be an increase
-in time spent in residence.
-
-<!-- TODO needs udpated, focus on community integration and acceptance of new norms instead -->
 cite @gibbons_etal21
 
 (@) _Hypothesis 2_ Being connected  Facebook friends living outside of the county will not lead to an increase in time spent in residence and decrease in vaccine uptake.
@@ -407,7 +387,6 @@ datasummary(formula = (`Percent White` = p_white)  +
               (`'Covid Conspiracy' Trend` = covid_conspiracy) +
               (`Covid Case Rate` = case_rate) +
               (`Week Number` = week_num) +
-              (`Community Integration` = sci_prob_self) +
               (`Movement Signal` = movement_signal) +
               (`Movement Discordance` = movement_assor)  ~ 
               min + max + mean + sd, 
@@ -486,7 +465,6 @@ datasummary(formula = (`Percent White` = p_white)  +
               (`'Covid Conspiracy' Trend` = covid_conspiracy) +
               (`Covid Case Rate` = case_rate) +
               (`Week Number` = week_num) +
-              (`Community Integration` = sci_prob_self) +
               (`Vaccination Signal` = vacc_signal) +
               (`Vaccination Discordance` = vacc_assor)  ~ 
               min + max + mean + sd, 
@@ -527,26 +505,6 @@ knitr::include_graphics(here('figs/plot-vacc.png'))
 
 ## Independent Variables
 
-### Community Integration
-This project will also draw on the "Social Connectedness Index" [@Bailey2018;
-@facebook20] which indexes the social links between geographies by the
-likelihood of Facebook friends. It is an aggregated measure of Facebook
-friendship connections between counties. It corresponds to “the (relative)
-probability that two arbitrary Facebook users across two geographies are friends
-with each other". The data is available at various geographic aggregation
-levels, such as U.S. zip codes or entire countries. This measure is based on
-user-provided information and real-time location-service data gathered by
-Facebook. Facebook data has been shown to be highly representative of the U.S.
-population and Facebook friendship links largely represent real-world
-friendships [@bailey_etal18; @jones_etal13]. The data has been tested to show
-how initial COVID-19 hotspots are related to subsequent virus spread to
-non-hotspots, even after controlling for population density and geographic
-distance [@Kuchler2020]. For this project, I first use the Social Connectedness
-Index to measure how likely it is that two Facebook users within a county are
-friends with each other; in other words, how tightly knit is the broader
-community.
-
-<!-- mention that this is a stable statistic over time -->
 ```{r sci, fig.cap='Relative Probability of Link to SF County, CA (Bailey et al. 2018)', include=FALSE}
 knitr::include_graphics(here('figs/sci-prob.png'))
 ```
@@ -562,7 +520,24 @@ signals using the equation \@ref(eq:networksignal) where `x` denotes the
 vaccination and stay-at-home rates of each alter county and `w` represents the
 likelihood of a friendship connection between the ego county and each of their
 alters, lagged by one week. This 'signal' of norms gives us insight into the
-coevolving contagion patterns of the new social norm being established.
+coevolving contagion patterns of the new social norm being established. The
+likelihood of friendship connection comes from the "Social Connectedness Index"
+[@Bailey2018; @facebook20] which indexes the social links between geographies by
+the likelihood of Facebook friends. It is an aggregated measure of Facebook
+friendship connections between counties. It corresponds to “the (relative)
+probability that two arbitrary Facebook users across two geographies are friends
+with each other". The data is available at various geographic aggregation
+levels, such as U.S. zip codes or entire countries. However, data is only
+available at one time point because Facebook has found that although there are
+individual changes in friendship connections over time, the aggregate
+statistical probabilities of friendship remain stable. This measure is based on
+user-provided information and real-time location-service data gathered by
+Facebook. Facebook data has been shown to be highly representative of the U.S.
+population and Facebook friendship links largely represent real-world
+friendships [@bailey_etal18; @jones_etal13]. The data has been tested to show
+how initial COVID-19 hotspots are related to subsequent virus spread to
+non-hotspots, even after controlling for population density and geographic
+distance [@Kuchler2020].
 
 \begin{equation}
 signal = \frac{\sum_{i=1}^nw_ix_i}{\sum^n_{i=1}w_i} (\#eq:networksignal)
@@ -891,16 +866,6 @@ google_h1 = lme(fixed = SAH ~ p_white + p_college + perc_65_over +
 
 google_h2 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over + 
                   income_med + unemployed_rate +
-               trump_votes_2016 +   evangelical_county + 
-                 fox_news + social_dist_trend + covid_conspiracy +
-                case_rate + week_num + sci_prob_self, 
-             random = ~ 1 | FIPS, 
-             data = google,
-             correlation = corAR1(), 
-             control = lmeControl(opt = "optim"))
-
-google_h3 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over + 
-                  income_med + unemployed_rate +
                trump_votes_2016 +  evangelical_county + 
                  fox_news + social_dist_trend + covid_conspiracy +
                case_rate + week_num + movement_signal*week_num, 
@@ -909,7 +874,7 @@ google_h3 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over +
              correlation = corAR1(), 
              control = lmeControl(opt = "optim"))
 
-google_h4 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over +
+google_h3 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over +
                   income_med + unemployed_rate +
                trump_votes_2016 + evangelical_county + 
                  fox_news + social_dist_trend + covid_conspiracy +
@@ -948,18 +913,7 @@ vacc_h1 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over +
              data = vacc,
              correlation = corAR1(), 
              control = lmeControl(opt = "optim"))
-
-vacc_h2 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over + 
-                  income_med + unemployed_rate +
-                trump_votes_2020 + evangelical_county +
-                 fox_news + covid_19_vaccine  + covid_conspiracy +
-               case_rate + week_num + sci_prob_self, 
-             random = ~ 1 | FIPS, 
-             data = vacc,
-             correlation = corAR1(), 
-             control = lmeControl(opt = "optim"))
-
-vacc_h3 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over +
+vacc_h2 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over +
                   income_med + unemployed_rate +
                 trump_votes_2020 + evangelical_county +
                 fox_news + covid_19_vaccine  + covid_conspiracy +
@@ -971,7 +925,7 @@ vacc_h3 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over +
 # vacc_h3 <- read_rds("modeling_cache/vacc_h3.rds")
 
 
-vacc_h4 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over + 
+vacc_h3 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over + 
                   income_med + unemployed_rate +
                 trump_votes_2020 + evangelical_county + 
                  fox_news + covid_19_vaccine  + covid_conspiracy +
@@ -1006,17 +960,15 @@ temporally autocorrelated error structures; models are also optimized using
 Nelder–Mead, quasi-Newton and conjugate-gradient algorithms for box-constrained
 optimization and simulated annealing (`control = lmeControl(opt = "optim")`).
 This model will address Hypothesis 1. To test hypothesis 2, I estimate model 2
-which builds on model 1 by adding the a measure of Community Integration, or,
-how likely it is that two Facebook users within a county are friends with each
-other. Models 3 tests hypothesis 3 builds on model 1 by first introducing
+which builds on model 1 by first introducing the movement of vaccination
 signal. Because the signal varies by week, I estimate this model with an
 interaction between week and signal. Moreoever, because signal may have
 different effects across different counties, I set a random effect for both
 signal. A visual representation of this interaction can be seen in figures
-\@ref(fig:plot-google-h3) and \@ref(fig:plot-vacc-h3). Model 4 then builds on
-model 3, introducing a fixed effect for the interaction between signal and
-discordance. Model 4 tests hypothesis 4. Figures \@ref(fig:plot-google-h4) and
-\@ref(fig:plot-vacc-h4) depict how signal and discordance interact.
+\@ref(fig:plot-google-h2) and \@ref(fig:plot-vacc-h2). Model 3 then builds on
+model 2, introducing a fixed effect for the interaction between signal and
+discordance. Model 4 tests hypothesis 4. Figures \@ref(fig:plot-google-h3) and
+\@ref(fig:plot-vacc-h3) depict how signal and discordance interact.
 
 
 # Results
@@ -1037,16 +989,15 @@ google_labels = c(
     'covid_conspiracy ' = "'Covid Conspiracy' Trend",
     'case_rate' = "Covid Case Rate",
     'week_num' = "Week Number",
-    'sci_prob_self' = "Community Integration",
     'movement_signal' = "Movement Signal",
     'week_num:movement_signal' = "Movement Signal x Week",
     'movement_assor' = "Movement Discordance",
     'movement_signal:movement_assor' = "Movement Signal x Discordance")
 
-modelsummary(list(google_h1, google_h2, google_h3, google_h4),
+modelsummary(list(google_h1, google_h2, google_h3),
              title = "Linear Mixed Effects Regression Results for Stay-At-Home Rates",
-             notes= c('Models 3-4 include a random effect for Movement Signal by FIPS',
-                      'Models 1-4 include a random intercept for FIPS,'), 
+             notes= c('Models 2-3 include a random effect for Movement Signal by FIPS',
+                      'Model 1 includes a random intercept for FIPS,'), 
              estimate = "{estimate}{stars}", 
              coef_map = google_labels,
              # coef_omit = '(Cor)|(Intercept\\~google_signal\\: FIPS))|(SD \\(google_signal\\))|(SD \\(Intercept\\))|\\(SD (Observations)\\)',
@@ -1061,19 +1012,9 @@ The parameter phi is .95, which is a good indicator that adjacent time points fo
 
 \@ref(tab:google-tab)
 
-2. Hypothesis 2 Having a low percent of Facebook friends living outside of the county will not lead to an increase in time spent in residence
 
-Super strong negative correlation of community integration, (likelihood #
-people from the same county would be connected), indicating that the stronger #
-community self-integration, the less likely to stay home, regardless of #
-religious and political affiliation.
-
-may need to run again population density or population to make sure this is
-valid
-
-
-```{r plot-google-h3, dependson='google_models', cache = TRUE, fig.cap='Predicted Values of Stay at Home Rate by Movement Signal', out.width="80%"}
-pred2 <- ggpredict(google_h3, c("week_num", "movement_signal")) %>% as_tibble()
+```{r plot-google-h2, dependson='google_models', cache = TRUE, fig.cap='Predicted Values of Stay at Home Rate by Movement Signal', out.width="80%"}
+pred2 <- ggpredict(google_h2, c("week_num", "movement_signal")) %>% as_tibble()
 
 pred2 <- pred2 %>% 
   mutate(group = case_when(group == 1 ~ "High",
@@ -1092,22 +1033,22 @@ pred2 <- pred2 %>%
   scale_fill_manual(values=my_palette[1:3]) +
   scale_color_manual(values=my_palette[1:3]) +
   theme(plot.title.position = "plot")
-ggsave(filename = here('figs/plot-google-h3.png'), pred2)
+ggsave(filename = here('figs/plot-google-h2.png'), pred2)
 
-knitr::include_graphics(here('figs/plot-google-h3.png'))
+knitr::include_graphics(here('figs/plot-google-h2.png'))
 
 ```
 
-3. Hypothesis 3 increased average time spent in residence (signal direction) from alters will have a positive effect on time spent in residence for the ego-county
+2. Hypothesis 2 increased average time spent in residence (signal direction) from alters will have a positive effect on time spent in residence for the ego-county
 
 So if you SEE your friends moving around more, you start staying at home more. ~
 Righteous superiority. If you see people staying at home, you assume it’s safer
 and then start moving around more.
 
-See Figure \@ref(fig:plot-google-h3).
+See Figure \@ref(fig:plot-google-h2).
 
-```{r plot-google-h4, dependson='google_models', cache = TRUE, fig.cap='Predicted Values of Stay at Home Rate Moderated', out.width="80%"}
-pred3 <- ggpredict(google_h4, c("movement_signal", "movement_assor")) %>% as_tibble()
+```{r plot-google-h3, dependson='google_models', cache = TRUE, fig.cap='Predicted Values of Stay at Home Rate Moderated', out.width="80%"}
+pred3 <- ggpredict(google_h3, c("movement_signal", "movement_assor")) %>% as_tibble()
 pred3 <- pred3 %>% 
   mutate(group = case_when(group == 1 ~ "Discordance",
                            group == 0 ~ "Average",
@@ -1126,11 +1067,11 @@ pred3 <- pred3 %>%
   scale_color_manual(values=my_palette[1:3]) +
   theme(plot.title.position = "plot")
 
-ggsave(filename = here('figs/plot-google-h4.png'), pred3)
+ggsave(filename = here('figs/plot-google-h3.png'), pred3)
 
-knitr::include_graphics(here('figs/plot-google-h4.png'))
+knitr::include_graphics(here('figs/plot-google-h3.png'))
 ```
-4. Hypothesis 4 the effect of signal direction on time spent in residence will be moderated by diversity in signals (Discordance)
+3. Hypothesis 3 the effect of signal direction on time spent in residence will be moderated by diversity in signals (Discordance)
 
 high Discordance = completely moderates the social influence effect
 low Discordance , condensed signal = allows for social influence to have an effect
@@ -1140,7 +1081,7 @@ a county is receiving a wide array of low and high signals, their stay at home
 rates won't be affected. When a signal is concentrated or in agreement, the
 theoretical effect of movement signaling on the ego are the strongest.
 
-See Figure \@ref(fig:plot-google-h4).
+See Figure \@ref(fig:plot-google-h3).
 
 ## vaccines results
 
@@ -1158,16 +1099,15 @@ vacc_labels = c(
     'covid_conspiracy ' = "'Covid Conspiracy' Trend",
     'case_rate' = "Covid Case Rate",
     'week_num' = "Week Number",
-    'sci_prob_self' = "Community Integration",
     'vacc_signal' = "Vaccination Signal",
     'vacc_signal:week_num' = "Vaccination Signal x Week",
     'vacc_assor' = "Vaccination Discordance",
     'vacc_signal:vacc_assor' = "Vaccination Signal x Discordance")
 
-modelsummary(list(vacc_h1, vacc_h2, vacc_h3, vacc_h4),
+modelsummary(list(vacc_h1, vacc_h2, vacc_h3),
              title = "Linear Mixed Effects Regression Results for Vaccination Rates",
-             notes= c('Models 3-4 include a random effect for Movement Signal by FIPS',
-                      'Models 1-4 include a random intercept for FIPS,'), 
+             notes= c('Models 2-3 include a random effect for Movement Signal by FIPS',
+                      'Model 1 includes a random intercept for FIPS,'), 
              estimate = "{estimate}{stars}", 
              coef_map = vacc_labels,
              # coef_omit = '(Cor)|(Intercept\\~vacc_signal\\: FIPS))|(SD \\(vacc_signal\\))|(SD \\(Intercept\\))|\\(SD (Observations)\\)',
@@ -1182,16 +1122,9 @@ for each person are related. References: [@finch_etal14]
 
 \@ref(tab:vacc-tab)
 
-2. Hypothesis 2 Having a low percent of Facebook friends living outside of the county will decreased in vaccine uptake.
 
-super strong negative correlation of community integration, or likelihood
-people from the same county would be connected, indicating that the stronger
-community self-integration to more less likely to stay home, regardless of
-religious and polticial affiliation.
-
-
-```{r plot-vacc-h3, dependson='vacc_models', cache = TRUE, fig.cap='Predicted Values of Vaccination Rate', out.width="80%"}
-pred4 <- ggpredict(vacc_h3, c("week_num", "vacc_signal")) %>% as_tibble()
+```{r plot-vacc-h2, dependson='vacc_models', cache = TRUE, fig.cap='Predicted Values of Vaccination Rate', out.width="80%"}
+pred4 <- ggpredict(vacc_h2, c("week_num", "vacc_signal")) %>% as_tibble()
 
 pred4 <- pred4 %>% 
   mutate(group = case_when(group == 1 ~ "High",
@@ -1211,17 +1144,17 @@ ggplot(aes(x = x, y = predicted, color = group, fill = group)) +
   scale_color_manual(values=my_palette[1:3]) +
   theme(plot.title.position = "plot")
 
-ggsave(filename = here('figs/plot-vacc-h3.png'), pred4)
+ggsave(filename = here('figs/plot-vacc-h2.png'), pred4)
 
-knitr::include_graphics(here('figs/plot-vacc-h3.png'))
+knitr::include_graphics(here('figs/plot-vacc-h2.png'))
 ```
-3. Hypothesis 3 increase vaccine uptake by alters will have a positive effect on vaccine uptake for the ego-county
+2. Hypothesis 2 increase vaccine uptake by alters will have a positive effect on vaccine uptake for the ego-county
 
 see a lot vaccinated, get vaccinated. see few vaccinated, don't vaccinate.
-See Figure \@ref(fig:plot-vacc-h3).
+See Figure \@ref(fig:plot-vacc-h2).
 
-```{r plot-vacc-h4, dependson='vacc_models', cache = TRUE, fig.cap='Predicted Values of Vaccination Rate', out.width="80%"}
-pred5 <- ggpredict(vacc_h4, c("vacc_signal", "vacc_assor")) %>% as_tibble()
+```{r plot-vacc-h3, dependson='vacc_models', cache = TRUE, fig.cap='Predicted Values of Vaccination Rate', out.width="80%"}
+pred5 <- ggpredict(vacc_h3, c("vacc_signal", "vacc_assor")) %>% as_tibble()
 pred5<-pred5 %>% 
   mutate(group = case_when(group == 1 ~ "Discordance",
                            group == 0 ~ "Average",
@@ -1241,15 +1174,15 @@ ggplot(aes(x = x, y = predicted, color = group, fill = group)) +
   scale_color_manual(values=my_palette[1:3]) +
   theme(plot.title.position = "plot")
 
-ggsave(filename = here('figs/plot-vacc-h4.png'), pred5)
+ggsave(filename = here('figs/plot-vacc-h3.png'), pred5)
 
-knitr::include_graphics(here('figs/plot-vacc-h4.png'))
+knitr::include_graphics(here('figs/plot-vacc-h3.png'))
 ```
 
-4. Hypothesis 4 the effect of signal direction vaccine uptake will be moderated by diversity in signals (Discordance)
+3. Hypothesis 3 the effect of signal direction vaccine uptake will be moderated by diversity in signals (Discordance)
 
 see consistent high signals, most likely to get vaccinated, see inconsistent signals but still high, less likely but still decently likely to raise vaccination rates. 
-See Figure \@ref(fig:plot-vacc-h4).
+See Figure \@ref(fig:plot-vacc-h3).
 
 
 # Conclusion
