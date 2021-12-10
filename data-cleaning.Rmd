@@ -57,7 +57,7 @@ sci <- sci %>%
 ```{r acs}
 # load ACS demographic data
 tidycensus::census_api_key("f935b09a686615286d59db38597c6730e7079760", overwrite = TRUE, install = TRUE)
-
+readRenviron("~/.Renviron")
 # v19 <- load_variables(2019, "acs5", cache = TRUE)
 # v19_p <- load_variables(2019, "acs5/profile", cache = TRUE)
 # v19_s <- load_variables(2019, "acs5/subject", cache = TRUE)
@@ -221,14 +221,54 @@ dma_key <- read_csv(here("data","google_dma_key.csv"))
 
 dma <- dma %>%
   full_join(dma_key)
-# 
+
+# fox news
 fox_news_2020 <- read_csv(here("data","trends","fox_dma_2020.csv")) %>%
   full_join(dma, by = "DMA_google") %>%
   select(fox_news, date, FIPS)
 
+social_distance_2020 <- read_csv(here("data","trends","social_distancing_2020.csv")) %>%
+  full_join(dma, by = "DMA_google") %>% 
+    janitor::clean_names() %>% 
+  select(social_dist_trend, date, FIPS = fips)
+
+covid_conspiracy_2020 <- read_csv(here("data","trends","covid_conspiracy_2020.csv")) %>%
+  full_join(dma, by = "DMA_google") %>% 
+    janitor::clean_names() %>% 
+  select(covid_conspiracy, date, FIPS = fips)
+
+trends_2020 <- fox_news_2020 %>% 
+  left_join(social_distance_2020, by = c('date', "FIPS")) %>% 
+  left_join(covid_conspiracy_2020, by = c('date', "FIPS")) %>% 
+  mutate(fox_news = replace_na(fox_news, 0), 
+         social_dist_trend = replace_na(social_dist_trend, 0), 
+         covid_conspiracy = replace_na(covid_conspiracy, 0))
+         
+
+vaccine_trend_2021 <- read_csv(here("data","trends","vaccine_trend_2021.csv")) %>%
+  full_join(dma, by = "DMA_google") %>% 
+    janitor::clean_names() %>% 
+  select(covid_19_vaccine, date, FIPS = fips)
+
 fox_news_2021 <- read_csv(here('data','trends','fox_dma_2021.csv')) %>%
   full_join(dma, by = "DMA_google")  %>%
   select(fox_news, date, FIPS)
+
+covid_conspiracy_2021 <- read_csv(here("data","trends","covid_conspiracy_2021.csv")) %>%
+  full_join(dma, by = "DMA_google") %>% 
+    janitor::clean_names() %>% 
+  select(covid_conspiracy, date, FIPS = fips)
+
+trends_2021 <- fox_news_2021 %>% 
+  left_join(vaccine_trend_2021, by = c('date', "FIPS")) %>% 
+  left_join(covid_conspiracy_2021, by = c('date', "FIPS")) %>% 
+  mutate(fox_news = replace_na(fox_news, 0), 
+         covid_19_vaccine = replace_na(covid_19_vaccine, 0), 
+         covid_conspiracy = replace_na(covid_conspiracy, 0))
+
+rm(list = c("fox_news_2020", "social_distance_2020", "covid_conspiracy_2020", 
+            "vaccine_trend_2021", "fox_news_2021", "covid_conspiracy_2021",
+            "dma_key", "dma"))  
 
 ```
 
@@ -248,7 +288,7 @@ google <- vroom::vroom(here("data","covid-mobility", "2020_US_Region_Mobility_Re
   mutate(sumNA = sum(ifelse(is.na(SAH), 1, 0))) %>% 
   filter(sumNA < 200) %>% 
   fill(SAH, .direction = 'downup') %>%
-  filter(!is.na(SAH)) 
+  filter(!is.na(SAH)) %>% 
   mutate(SAH = zoo::rollmean(SAH, k = 7, fill = NA),
          wday = lubridate::wday(date, label=TRUE)) %>% 
   filter(wday == "Mon",
@@ -279,32 +319,30 @@ weighted.sd <- function(x, wt, na.rm = TRUE) {
     wm <- weighted.mean(x, wt)
     sqrt(sum(wt * (x - wm)^2) / sum(wt))
 }
-
 weight_sd_move <- function(df) weighted.sd(df$SAH, wt = df$scaled_sci, na.rm = TRUE)
 
 overall_average_SAH <- google %>% 
   dplyr::group_by(date) %>% 
   dplyr::summarize(SAH_mean = mean(SAH, na.rm = TRUE))
-
   
 google <-
-  google %>%                                                # movement data
-  dplyr::group_by(date) %>%                                          # group by date
+  google %>%                                               # movement data 
+  dplyr::group_by(date) %>%                                 # group by date
   dplyr::mutate(date_lag = date - 7) %>% 
-  dplyr::left_join(sci, by = c("FIPS" = "user_loc")) %>%             # merge in sci
+  dplyr::left_join(sci, by = c("FIPS" = "user_loc")) %>%    # merge in sci
   tidyr::nest(data = c(date_lag, fr_loc, scaled_sci)) %>% 
-  dplyr::mutate(data = map(data, merge_alter_movement)) %>%    # merge in alter's lagged movement
-  dplyr::mutate(movement_signal = map_dbl(data, weight_avg_move),      # take weighted mean
+  dplyr::mutate(data = map(data, merge_alter_movement)) %>% # merge in alter's lagged movement
+  dplyr::mutate(movement_signal = map_dbl(data, weight_avg_move), # take weighted mean
          movement_assor = map_dbl(data, weight_sd_move),
           .keep = "unused")  %>% 
   left_join(overall_average_SAH, by = "date") %>% 
   mutate(date_month = lubridate::month(date),
          date_year = lubridate::year(date))
     
-# google  %>% 
-  # take a sample for testing
-  # filter(FIPS %in% c("53061", "06059", "17031", "39159", "49017", "25013")) %>%
-#   pivot_longer(cols = c(SAH, movement_signal, SAH_mean)) %>% 
+# google  %>%
+# # take a sample for testing
+# filter(FIPS %in% c("53061", "06059", "17031", "39159", "49017", "25013")) %>%
+#   pivot_longer(cols = c(SAH, movement_signal, SAH_mean)) %>%
 #   ggplot(aes(x = date, y = value, color = name)) + geom_line() + facet_wrap(~FIPS) + theme_classic()
 
 write_csv(google, here("data", "google_intermediate.csv"))
@@ -320,19 +358,21 @@ merge in time invarying
 google <- vroom( here("data", "google_intermediate.csv")) %>% 
   left_join(time_constant, by = "FIPS")
 ```
+
 merge in time varying
 ```{r google_merge_2}
 google <- google %>% 
+  mutate(date_month = lubridate::month(date),
+         date_year = lubridate::year(date)) %>% 
   left_join(LAUS, by = c("FIPS", "date_month", "date_year")) %>% 
   left_join(covid_rate, by = c("FIPS", "date")) %>% 
-  left_join(fox_news_2020, by =  c("FIPS", "date")) 
-
+  left_join(trends_2020, by =  c("FIPS", "date")) 
 ```
 
 ## save movement
 ```{r google_save}
 write_csv(google, here("data", "google_movement_main.csv"))
-rm(list = c("google", "fox_news_2020"))
+rm(list = c("google", "trends_2020"))
 ```
 
 
@@ -379,6 +419,7 @@ vacc <- vacc %>%
 # weighted_mean_movement_signal   
 weight_avg_vacc <- function(df) weighted.mean(df$vacc_rate, w = df$scaled_sci, na.rm = TRUE)
 weight_sd_vacc <- function(df) weighted.sd(df$vacc_rate, wt = df$scaled_sci, na.rm = TRUE)
+
 
 merge_alter_vacc <- function(data) {
   left_join(x = data, 
@@ -440,7 +481,7 @@ merge in time varying
 vacc <- vacc %>% 
   left_join(LAUS, by = c("FIPS", "date_month", "date_year"))%>% 
   left_join(covid_rate, by = c("FIPS", "date")) %>% 
-  left_join(fox_news_2021, by =  c("FIPS", "date")) 
+  left_join(trends_2021, by =  c("FIPS", "date")) 
 ```
 
 ## save vacc

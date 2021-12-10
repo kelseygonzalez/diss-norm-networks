@@ -35,7 +35,7 @@ knitr::opts_chunk$set(echo = FALSE,
 
 # knitr::opts_knit$get("rmarkdown.pandoc.to")
 
-pacman::p_load(tidyverse, here, nlme, lme4, stargazer,
+pacman::p_load(tidyverse, here, nlme, 
                sjPlot, ggeffects, patchwork, ggridges,
                glue, modelsummary)
 my_palette = c('#56b4e9','#999999','#E69F00','#009E73','#CC79A7','#0072B2','#D55E00','#E69F00')
@@ -54,7 +54,8 @@ google <- read_csv(here("data", "google_movement_main.csv"), show_col_types = FA
   select(FIPS, date, SAH, movement_assor, sci_prob_self, movement_signal, 
          case_rate, p_white, p_black, p_college, p_hispanic,
          perc_65_over, unemployed_rate, income_med, 
-         trump_votes_2016, evangelical_county, fox_news) %>% 
+         trump_votes_2016, evangelical_county, 
+         fox_news, social_dist_trend, covid_conspiracy) %>% 
   mutate(week_num = as.numeric((date - lubridate::ymd("2020-03-02")) / 7))
 ```
 
@@ -64,7 +65,8 @@ vacc <- read_csv(here("data", "vacc_main.csv"), show_col_types = FALSE)  %>%
   select(FIPS, date, vacc_rate, sci_prob_self, vacc_signal, vacc_assor,
          case_rate, p_white, p_black, p_college, p_hispanic,
          perc_65_over, unemployed_rate, income_med, population,
-         trump_votes_2020, evangelical_county, fox_news) %>% 
+         trump_votes_2020, evangelical_county, 
+         fox_news, covid_19_vaccine, covid_conspiracy) %>% 
   drop_na() %>% 
     mutate(week_num = as.numeric((date - lubridate::ymd("2020-03-02")) / 7))
 
@@ -172,6 +174,8 @@ behavior. Like Axelrod [-@axelrodDisseminationCultureModel1997] this outlines
 how the of local convergence of close network actors becomes amplified and can
 lead to global polarization between groups.
 
+Write a sentence about [@bailey_etal20]
+
 <!-- TODO needs updated, make sure paragraph on complex contagion is here -->
 There are many other theoretical mechanisms that lead to the establishment of
 diverse behavioral norms. Some I won’t discuss here include network isolation
@@ -201,6 +205,8 @@ looks to investigate the choice to adhere to government mandated stay at home
 orders. Because disconnected communities are resistant to policy change and
 mistrust the central government, I theorize that there will not be an increase
 in time spent in residence.
+
+cite @gibbons_etal21
 <!-- TODO needs udpated, focus on community integration and acceptance of new norms instead -->
 
 
@@ -372,36 +378,26 @@ count_to_state %>%
 counties <- google %>% count(FIPS) %>% pull(FIPS)
 google_dates <- google %>% count(date) %>% pull(date)
 
-google %>% 
-  select(SAH,p_white,p_college,perc_65_over,income_med,unemployed_rate,trump_votes_2016,
-         evangelical_county,fox_news,case_rate,
-         week_num, sci_prob_self,movement_signal,movement_assor) %>% 
-  as.data.frame() %>% 
-  stargazer(., 
-          title ="Descriptive Statistics for Stay at Home Models (county-level)",
-          label = 'tab:google-desc-table',
-          covariate.labels = c(
-            "Stay at Home Rate, Change from Baseline",
-            "Percent White",
-            "Percent College Graduates",
-            "Percent over 65",
-            "Median Income",
-            "5 Year-Unemployment Rate",
-            "Percent of GOP votes, 2016",
-            "Percent Evangelical Christian",
-            "Fox News Interest",
-            "Covid Case Rate",
-            "Week Number",
-            "Community Integration",
-            "Movement Signal",
-            "Movement Discordance"),
-          # type = "text", 
-          summary = TRUE,
-          rownames = TRUE,
-          summary.stat = c("min", "max", "mean", "sd"),
-          digits = 2,
-          header=FALSE,
-          notes =c(glue("Notes: {format(length(counties), nsmall=1, big.mark=',')} counties, {format( min(google_dates), '%B %d')} through {format(max(google_dates), '%B %d')}, 2020."),"Raw values presented in table. Values in models are normalized."))
+datasummary(formula = (`Percent White` = p_white)  +
+              (`Percent College Graduates` = p_college) +
+              (`Percent over 65` = perc_65_over) +
+              (`Median Income` = income_med) +
+              (`Monthly Unemployment Rate` = unemployed_rate) +
+              (`Percent of GOP votes, 2016` = trump_votes_2016) +
+              (`Percent Evangelical Christian` = evangelical_county) +
+              (`'Fox News' Trend` = fox_news) +
+              (`'Social Distancing' Trend` = social_dist_trend) +
+              (`'Covid Conspiracy' Trend` = covid_conspiracy) +
+              (`Covid Case Rate` = case_rate) +
+              (`Week Number` = week_num) +
+              (`Community Integration` = sci_prob_self) +
+              (`Movement Signal` = movement_signal) +
+              (`Movement Discordance` = movement_assor)  ~ 
+              min + max + mean + sd, 
+            data = google,
+            title = 'Descriptive Statistics for Stay-at-Home Models (county-level)',
+            notes =c(glue("Notes: {format(length(counties), nsmall=1, big.mark=',')} counties, {format( min(google_dates), '%B %d')} through {format(max(google_dates), '%B %d')}, 2020."),
+                     "Raw values presented in table. Values in models are normalized."))
 
 ```
 
@@ -448,7 +444,7 @@ Vaccination data is available for all US counties with the exception of parts of
 California and Massachusetts, Hawaii, Texas. In Texas and Hawaii, no county
 level information is available, and California does not report the county of
 residence for vaccinations when the county of residence has a population less
-than 20,000 people. Finally,Massachusetts does not provide vaccination data for
+than 20,000 people. Finally, Massachusetts does not provide vaccination data for
 Barnstable, Dukes, and Nantucket counties because of their small populations.
 Therefore, my final county sample for vaccination rates is _n_ = `r vacc %>% count(FIPS) %>% nrow()` 
 (compared to the total population of 3,107 US counties). A list of included FIPS
@@ -461,37 +457,25 @@ observations for each county.
 counties <- vacc %>% count(FIPS) %>% pull(FIPS)
 vacc_dates <- vacc %>% count(date) %>% pull(date)
 
-vacc %>% 
-  select(vacc_rate,p_white,p_college,perc_65_over,                              income_med,unemployed_rate,trump_votes_2020,
-         evangelical_county,fox_news,case_rate,
-         week_num, sci_prob_self,vacc_signal,vacc_assor) %>% 
-  as.data.frame() %>% 
-  stargazer(., 
-          title ="Descriptive Statistics for Vaccination Models (county-level)",
-          label = 'tab:vacc-desc-table',
-          covariate.labels = c(
-            "Vaccination Rate, Percent",
-            "Percent White",
-            "Percent College Graduates",
-            "Percent over 65",
-            "Median Income",
-            "5 Year-Unemployment Rate",
-            "Percent of GOP votes, 2020",
-            "Percent Evangelical Christian",
-            "Fox News Interest",
-            "Covid Case Rate",
-            "Week Number",
-            "Community Integration",
-            "Vaccination Signal",
-            "Vaccination Discordance"),
-          # type = "text",
-          summary = TRUE,
-          rownames = TRUE,
-          summary.stat = c("min", "max", "mean", "sd"),
-          digits = 2,
-          header=FALSE,
-          notes = c(glue("Notes: {format(length(counties), nsmall=1, big.mark=',')} counties, {format( min(vacc_dates), '%B %d')} through {format( max(vacc_dates), '%B %d')}, 2021."),"Raw values presented in table. Values in Models are normalized."))
-
+datasummary(formula = (`Percent White` = p_white)  +
+              (`Percent College Graduates` = p_college) +
+              (`Percent over 65` = perc_65_over) +
+              (`Median Income` = income_med) +
+              (`Monthly Unemployment Rate` = unemployed_rate) +
+              (`Percent of GOP votes, 2020` = trump_votes_2020) +
+              (`Percent Evangelical Christian` = evangelical_county) +
+              (`'Fox News' Trend` = fox_news) +
+              (`'Covid-19 vaccine' Trend` = covid_19_vaccine) +
+              (`'Covid Conspiracy' Trend` = covid_conspiracy) +
+              (`Covid Case Rate` = case_rate) +
+              (`Week Number` = week_num) +
+              (`Community Integration` = sci_prob_self) +
+              (`Vaccination Signal` = vacc_signal) +
+              (`Vaccination Discordance` = vacc_assor)  ~ 
+              min + max + mean + sd, 
+            data = vacc,
+            title = 'Descriptive Statistics for Vaccination Models (county-level)',
+            notes = c(glue("Notes: {format(length(counties), nsmall=1, big.mark=',')} counties, {format( min(vacc_dates), '%B %d')} through {format(max(vacc_dates), '%B %d')}, 2021."),"Raw values presented in table. Values in Models are normalized."))
 ```
 
 ```{r plot-vacc, cache = TRUE, fig.cap = "Vaccination Rates over Time", out.width="80%"}
@@ -535,12 +519,15 @@ probability that two arbitrary Facebook users across two geographies are friends
 with each other". The data is available at various geographic aggregation
 levels, such as U.S. zip codes or entire countries. This measure is based on
 user-provided information and real-time location-service data gathered by
-Facebook. The data has been tested to show how initial COVID-19 hotspots are
-related to subsequent virus spread to non-hotspots, even after controlling for
-population density and geographic distance [@Kuchler2020]. For this project, I
-first use the Social Connectedness Index to measure how likely it is that two
-Facebook users within a county are friends with each other; in other words, how
-tightly knit is the broader community.
+Facebook. Facebook data has been shown to be highly representative of the U.S.
+population and Facebook friendship links largely represent real-world
+friendships [@bailey_etal18; @jones_etal13]. The data has been tested to show
+how initial COVID-19 hotspots are related to subsequent virus spread to
+non-hotspots, even after controlling for population density and geographic
+distance [@Kuchler2020]. For this project, I first use the Social Connectedness
+Index to measure how likely it is that two Facebook users within a county are
+friends with each other; in other words, how tightly knit is the broader
+community.
 
 <!-- mention that this is a stable statistic over time -->
 ```{r sci, fig.cap='Relative Probability of Link to SF County, CA (Bailey et al. 2018)', include=FALSE}
@@ -806,29 +793,57 @@ between the two datasets.
 Research has shown that stay-at-home rates and other pandemic health behaviors
 are related to various 'pillars of conservatism' [@hillBloodChristCompels2020;
 @hillNastiestQuestionDoes2021; @hillLoveThyAged2021;
-@gonzalez_etal21]. Namely, research shows that
-politically conservative indicators, such as  Republican political leadership,
-conservative Protestantism and consumption of right-wing media are related to
-higher rates of movement and lower rates of mask usage. Based on these findings,
-this article controls for these factors in the following ways: to measure
-Republican political leadership, I include percentage of votes for Donald Trump
-in the previous presidential election; for the 2020 study, I use the 2016
-results and for the 2021 study, I use the 2020 results to infer proper time
-ordering. Second, to measure conservative Protestantism with the county’s
-percentage of evangelical Christians. These county-level data were collected
-through the 2010 U.S. Religion Census: Religious Congregations and Membership
-Study [@grammich_etal18]. Finally, right-wing media consumption is assessed
-using Google Search Trends to capture “Fox News” searches over the study period
-across individual designated media markets areas (DMAs), a nonoverlapping
-aggregation of U.S. counties to 210 media markets based on similar population
-clusters. Each DMA value represents the popularity of the search term on a scale
-of 0 to 100, with 100 being the maximum search popularity out of all DMAs and
-all searches. We use this measure to indicate active interest in and attention
-toward Fox News. Google Search Trends have been validated for use in a range of
-research contexts and for use with survey data, voting data, and ecological data
-[@bailPrestigeProximityPrejudice2019; @reyesUsingInternetSearch2018;
-@scheitleGoogleInsightsSearch2011; @stephens-davidowitzCostRacialAnimus2014;
-@swearingenGoogleInsightsSenate2014].
+@gonzalez_etal21]. Namely, research shows that politically conservative
+indicators, such as  Republican political leadership, conservative Protestantism
+and consumption of right-wing media are related to higher rates of movement and
+lower rates of mask usage. Based on these findings, this article controls for
+these factors in the following ways: to measure Republican political leadership,
+I include percentage of votes for Donald Trump in the previous presidential
+election; for the 2020 study, I use the 2016 results and for the 2021 study, I
+use the 2020 results to infer proper time ordering. Second, to measure
+conservative Protestantism with the county’s percentage of evangelical
+Christians. These county-level data were collected through the 2010 U.S.
+Religion Census: Religious Congregations and Membership Study
+[@grammich_etal18]. Finally, right-wing media consumption is assessed using
+Google Search Trends to capture “Fox News” searches over the study period across
+individual designated media markets areas (DMAs), a nonoverlapping aggregation
+of U.S. counties to 210 media markets based on similar population clusters. Each
+DMA value represents the popularity of the search term on a scale of 0 to 100,
+with 100 being the maximum search popularity out of all DMAs and all searches.
+However, these rates are rescaled using a process described in [Online
+Norms](#online-norms) below. I use this measure to indicate active interest in
+and attention toward Fox News. Google Search Trends have been validated for use
+in a range of research contexts and for use with survey data, voting data, and
+ecological data [@bailPrestigeProximityPrejudice2019;
+@reyesUsingInternetSearch2018; @scheitleGoogleInsightsSearch2011; 
+@stephens-davidowitzCostRacialAnimus2014; @swearingenGoogleInsightsSenate2014].
+
+### Online Norms
+To operationalize the search for online norms, I again use Google search trends
+over the study period across individual designated media markets areas (DMAs), a
+nonoverlapping aggregation of U.S. counties to 210 media markets based on
+similar population clusters. To investigate the rate of _searching_ for norms
+online in both cases, I use the following search topics: 'Social Distancing'
+(2020, stay-at-home case only), 'Covid-19 Vaccine' (2021 Vaccination Uptake case
+only) and Covid Conspiracy (2020-2021, both cases). Search topics are a more
+robust measurement than a single search term: topics are aggregations of the
+rates of multiple, highly correlated search terms together into a cohesive
+topic. For example, while 'Beyoncé', 'Beyonce' and 'beyonce knowles' are all
+separate search terms, 'Beyoncé Knowles' encompasses all of these into a single
+search topic. While the data is originally on a original scale of 0 to 100, with
+100 being the maximum search popularity out of all DMAs, Google Search Trend are
+now only available cross-sectionally (a single time period across a geography)
+or time-series (a single geo-location across time). To remedy this and build a
+longitudinal dataset of each search topic, I follow the method proposed in
+@park_etal, p. 5. This method involves building a dataset of unscaled
+cross-sectional values, selecting a DMA to use to establish the  rescaling ratio
+(I use 'Los Angeles CA'), and then finding the time-series values for the one
+DMA. To find the rescaling ratio for each week in the time-series, you divide
+the time-series value for each week by the cross-sectional value for each week,
+resulting in a rescaling vector to be used for all weeks in the dataset across
+geographies. To rescale each longitudinal value, multiply the respective week's
+rescaling ratio by the cross-sectional value. Rescaled longitudinal data was
+compared against time-series data for multiple test counties and was equivalent. 
 
 ### Demographics
 
@@ -842,6 +857,115 @@ from the U.S. Bureau of Labor Statistics [@labor2020a].
 
 
 ## Modeling Prodecures
+
+```{r google_models2, dependson='load_google', cache = TRUE}
+google <- google %>% 
+  mutate(across(SAH:covid_conspiracy , ~ scale(.x, center=TRUE, scale=TRUE)))
+
+google_h1 = lme(fixed = SAH ~ p_white + p_college + perc_65_over + 
+                  income_med + unemployed_rate +
+                  trump_votes_2016 +  evangelical_county +
+                 fox_news + social_dist_trend + covid_conspiracy +
+                 case_rate + week_num, 
+             random = ~ 1 | FIPS, 
+             data = google,
+             correlation = corAR1(), 
+             control = lmeControl(opt = "optim"))
+
+google_h2 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over + 
+                  income_med + unemployed_rate +
+               trump_votes_2016 +   evangelical_county + 
+                 fox_news + social_dist_trend + covid_conspiracy +
+                case_rate + week_num + sci_prob_self, 
+             random = ~ 1 | FIPS, 
+             data = google,
+             correlation = corAR1(), 
+             control = lmeControl(opt = "optim"))
+
+google_h3 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over + 
+                  income_med + unemployed_rate +
+               trump_votes_2016 +  evangelical_county + 
+                 fox_news + social_dist_trend + covid_conspiracy +
+               case_rate + week_num + movement_signal*week_num, 
+             random = ~ (1 + movement_signal) | FIPS, 
+             data = google,
+             correlation = corAR1(), 
+             control = lmeControl(opt = "optim"))
+
+google_h4 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over +
+                  income_med + unemployed_rate +
+               trump_votes_2016 + evangelical_county + 
+                 fox_news + social_dist_trend + covid_conspiracy +
+                 case_rate + week_num + 
+                 movement_signal*week_num +
+                 movement_signal*movement_assor, 
+             random = ~ (1 + movement_signal) | FIPS, 
+             data = google,
+             correlation = corAR1(), 
+             control = lmeControl(opt = "optim"))
+
+```
+```{r vacc_models, dependson='load_vacc', cache = TRUE}
+
+# vacc %>% 
+#   select(where(is.numeric)) %>% 
+#   cor() %>%  
+#   round(2) %>%
+#   as.data.frame() %>% 
+#   tibble::rownames_to_column("row") %>%
+#   pivot_longer(cols = -row) %>% 
+#   ggplot(aes(x = row, y = name, fill = value)) + 
+#   geom_tile() + geom_text(aes(label = value)) + 
+#   theme(axis.text.x = element_text(angle = 45))
+
+vacc <- vacc %>% 
+  mutate(across(vacc_rate:covid_conspiracy, ~(scale(.x, scale = TRUE, center = TRUE)))) 
+
+
+vacc_h1 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over + 
+                  income_med + unemployed_rate +
+                 evangelical_county + trump_votes_2020 + 
+                 fox_news + covid_19_vaccine  + covid_conspiracy +
+               case_rate + week_num, 
+             random = ~ 1 | FIPS, 
+             data = vacc,
+             correlation = corAR1(), 
+             control = lmeControl(opt = "optim"))
+
+vacc_h2 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over + 
+                  income_med + unemployed_rate +
+                trump_votes_2020 + evangelical_county +
+                 fox_news + covid_19_vaccine  + covid_conspiracy +
+               case_rate + week_num + sci_prob_self, 
+             random = ~ 1 | FIPS, 
+             data = vacc,
+             correlation = corAR1(), 
+             control = lmeControl(opt = "optim"))
+
+vacc_h3 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over +
+                  income_med + unemployed_rate +
+                trump_votes_2020 + evangelical_county +
+                fox_news + covid_19_vaccine  + covid_conspiracy +
+                case_rate + vacc_signal*week_num,
+             random = ~ (1 + vacc_signal) | FIPS,
+             data = vacc,
+             correlation = corAR1(),
+             control = lmeControl(opt = "optim"))
+# vacc_h3 <- read_rds("modeling_cache/vacc_h3.rds")
+
+
+vacc_h4 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over + 
+                  income_med + unemployed_rate +
+                trump_votes_2020 + evangelical_county + 
+                 fox_news + covid_19_vaccine  + covid_conspiracy +
+                case_rate + vacc_signal*week_num + vacc_signal*vacc_assor, 
+             random = ~ (1 + vacc_signal) | FIPS, 
+             data = vacc,
+             correlation = corAR1(), 
+             control = lmeControl(opt = "nlminb",
+                                  maxIter = 1e8, msMaxIter = 1e8))
+```
+
 
 ```{r google_models, dependson='load_google', cache = TRUE}
 google <- google %>% 
@@ -1002,9 +1126,11 @@ google_labels = c(
     'perc_65_over' = "Percent over 65",
     'income_med' = "Median Income",
     'unemployed_rate' = "Monthly Unemployment Rate",
-    'trump_votes_2020' = "Percent of GOP votes, 2020",
+    'trump_votes_2016' = "Percent of GOP votes, 2016",
     'evangelical_county' = "Percent Evangelical Christian",
-    'fox_news' = "Fox News Interest",
+    'fox_news' = "'Fox News' Trend",
+    'social_dist_trend' = "'Social Distancing' Trend",
+    'covid_conspiracy ' = "'Covid Conspiracy' Trend",
     'case_rate' = "Covid Case Rate",
     'week_num' = "Week Number",
     'sci_prob_self' = "Community Integration",
@@ -1015,12 +1141,11 @@ google_labels = c(
 
 modelsummary(list(google_h1, google_h2, google_h3, google_h4),
              title = "Linear Mixed Effects Regression Results for Stay-At-Home Rates",
-             stars = TRUE,   
              notes= c('Models 3-4 include a random effect for Movement Signal by FIPS',
                       'Models 1-4 include a random intercept for FIPS,'), 
              estimate = "{estimate}{stars}", 
-             # coef_map = google_labels,
-             coef_omit = '(Cor (Intercept\\~vacc_signal\\: FIPS))|(SD \\(vacc_signal\\))|(SD \\(Intercept\\))|\\(SD (Observations)\\)',
+             coef_map = google_labels,
+             # coef_omit = '(Cor)|(Intercept\\~google_signal\\: FIPS))|(SD \\(google_signal\\))|(SD \\(Intercept\\))|\\(SD (Observations)\\)',
              gof_omit = 'AIC|BIC|ICC|RMSE')
 
 ```
@@ -1124,7 +1249,9 @@ vacc_labels = c(
     'unemployed_rate' = "Monthly Unemployment Rate",
     'trump_votes_2020' = "Percent of GOP votes, 2020",
     'evangelical_county' = "Percent Evangelical Christian",
-    'fox_news' = "Fox News Interest",
+    'fox_news' = "'Fox News' Trend",
+    'vaccine_trend' = "'Vaccine' Trend",
+    'covid_conspiracy ' = "'Covid Conspiracy' Trend",
     'case_rate' = "Covid Case Rate",
     'week_num' = "Week Number",
     'sci_prob_self' = "Community Integration",
@@ -1135,12 +1262,11 @@ vacc_labels = c(
 
 modelsummary(list(vacc_h1, vacc_h2, vacc_h3, vacc_h4),
              title = "Linear Mixed Effects Regression Results for Vaccination Rates",
-             stars = TRUE,   
              notes= c('Models 3-4 include a random effect for Movement Signal by FIPS',
                       'Models 1-4 include a random intercept for FIPS,'), 
              estimate = "{estimate}{stars}", 
              coef_map = vacc_labels,
-             coef_omit = '(Cor (Intercept\\~vacc_signal\\: FIPS))|(SD \\(vacc_signal\\))|(SD \\(Intercept\\))|\\(SD (Observations)\\)',
+             # coef_omit = '(Cor)|(Intercept\\~vacc_signal\\: FIPS))|(SD \\(vacc_signal\\))|(SD \\(Intercept\\))|\\(SD (Observations)\\)',
              gof_omit = 'AIC|BIC|ICC|RMSE')
 
 ```
@@ -1241,7 +1367,7 @@ do extract data from a large portion of the population, I must be mindful of the
 sampling issues involved in both data sets. The Facebook data is potentially
 biased by both a skew of who allows location permissions but also who has a
 Facebook account and has added their friends. While I have not found any
-research comparing the demographics of Facebook users to actual population, it
+research comparing the demographics of Facebook users to actual population (JK CHECK OUT [@bailey_etal18; @jones_etal13]), it
 is easy to theorize how it may over or underrepresent different subsets of the
 population in different areas [@salganikBitBitSocial2017 Section 2.3.6]. The friendship
 indicator should also be read critically, because some individuals add everyone

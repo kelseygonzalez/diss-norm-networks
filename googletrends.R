@@ -20,7 +20,8 @@ find_initial_trends <- function(keyword, period_list){
       category = 0,
       hl = "en-US")$interest_by_dma %>%
       tibble() %>%
-      mutate(date = period) %>% 
+      mutate(date = period,
+             hits = as.numeric(hits)) %>% 
       select(-c(geo, gprop)) %>%
       bind_rows(trends)
   }
@@ -41,7 +42,7 @@ find_scale_point <- function(keyword, year){
   
   rescale <- gtrends(
     keyword = keyword,
-    geo = "US-WA-819",
+    geo = "US-CA-803",
     time = span,
     gprop = "web",
     category = 0,
@@ -60,8 +61,10 @@ find_scale_point <- function(keyword, year){
 }
 rescale_trends <- function(trends, rescale){
   rescale_ratio <- rescale %>%
-    mutate(location = 'Seattle-Tacoma WA') %>% 
-    left_join( trends %>% 
+    mutate(location = 'Los Angeles CA',
+           hits_rescale = replace_na(hits_rescale, 0),
+           hits_rescale = ifelse(hits_rescale == 0, 0.0001, hits_rescale)) %>% 
+    left_join(trends %>% 
                  mutate(date = ymd(date)), by = c('date', 'location'))  %>% 
     mutate(rescale_ratio = hits_rescale/hits)  %>% 
     select(date, rescale_ratio)
@@ -79,43 +82,40 @@ find_trends <- function(keyword, year){
   trends <- find_initial_trends(keyword, find_mondays(year))
   rescaled<- find_scale_point(keyword, year)
   rescaled_trends <- rescale_trends(trends, rescaled)
+  
+  rescaled_trends <- rescaled_trends %>% 
+    mutate(location = str_to_upper(location),
+           location = str_replace_all(location,"-", " - "),
+           location = str_replace_all(location,",", ""),
+           location = str_replace_all(location,"\\s(\\w{2})\\b", " \\(\\1\\)")) %>% 
+    select(DMA_google = location, !!keyword := hits_transformed_a, date)
+  
   return(rescaled_trends)
 }
 
 
 fox_2020 <- find_trends('Fox News', 2020)
-
-
 fox_2021 <- find_trends('Fox News', 2021)
 write_csv(fox_2021, here('data','trends','fox_dma_2021.csv'))
 
+
+
+social_distance_2020 <- find_trends('Social distancing', 2020)
+write_csv(social_distance_2020, here('data','trends','social_distancing_2020.csv'))
+
+lockdown_2020 <- find_trends('Lockdown', 2020) 
+write_csv(lockdown_2020, here('data','trends','lockdown_2020.csv'))
 
 sahr_2020 %>% 
   filter(location %in% c('Billings, MT', 'Seattle-Tacoma WA', 'Alpena MI', 'Fairbanks AK')) %>% 
   pivot_longer(cols = c("hits", "hits_transformed_a")) %>% 
   ggplot(aes(x = date, y = value, color = name)) +
   geom_line() +
-    facet_wrap(~ location)
+  facet_wrap(~ location)
 
 
-
-sahr_2020 <- find_trends('Social distancing', 2020)
-sahr_2020 %>%
-  mutate(location = str_to_upper(location),
-         location = str_replace_all(location,"-", " - "),
-         location = str_replace_all(location,",", ""),
-         location = str_replace_all(location,"\\s(\\w{2})\\b", " \\(\\1\\)")) %>% 
-  select(DMA_google = location, social_dist_trend = hits_transformed_a, date) %>% 
-write_csv(here('data','trends','social_distancing_2020.csv'))
-
-
-
-vaccine_trend_2021 <- find_trends('COVID-19 vaccine', 2021) %>%
-  mutate(location = str_to_upper(location),
-         location = str_replace_all(location,"-", " - "),
-         location = str_replace_all(location,",", ""),
-         location = str_replace_all(location,"\\s(\\w{2})\\b", " \\(\\1\\)")) %>% 
-  select(DMA_google = location, vaccine_google_trend = hits_transformed_a, date)
+vaccine_trend_2021 <- find_trends('COVID-19 vaccine', 2021) 
+write_csv(vaccine_trend_2021, here('data','trends','vaccine_trend_2021.csv'))
 
 
 vaccine_trend_2021 %>% 
@@ -124,4 +124,10 @@ filter(DMA_google %in% c('BILLINGS (MT)', 'SEATTLE - TACOMA (WA)', 'ALPENA (MI)'
   ggplot(aes(x = date, y = vaccine_google_trend, color = DMA_google)) +
   geom_line() 
 
-write_csv(vaccine_trend_2021, here('data','trends','vaccine_trend_2021_2021.csv'))
+
+covid_conspiracy_2020 <- find_trends('covid conspiracy', 2020) 
+write_csv(covid_conspiracy_2020, here('data','trends','covid_conspiracy_2020.csv'))
+
+covid_conspiracy_2021 <- find_trends('covid conspiracy', 2021) 
+write_csv(covid_conspiracy_2021, here('data','trends','covid_conspiracy_2021.csv'))
+
