@@ -30,21 +30,45 @@ indent: true
 knitr::opts_chunk$set(echo = FALSE, 
                       message = FALSE,
                       warning = FALSE,
-                      cache = TRUE,
-                      dev.args = list(png = list(type = "cairo")))
+                      cache = TRUE)
+                      # dev.args = list(png = list(type = "cairo")))
+               
 
 # knitr::opts_knit$get("rmarkdown.pandoc.to")
 
 pacman::p_load(tidyverse, here, nlme, 
                sjPlot, ggeffects, patchwork, ggridges,
-               glue, modelsummary)
+               glue, modelsummary, showtext, thematic, broom.mixed)
 my_palette = c('#56b4e9','#999999','#E69F00','#009E73','#CC79A7','#0072B2','#D55E00','#E69F00')
 
 count_to_state <- read_csv("https://raw.githubusercontent.com/kjhealy/fips-codes/master/county_fips_master.csv") %>% 
   mutate(FIPS = str_pad(fips, 5, pad = "0")) %>% 
   select(FIPS, state_abbr)
+```
 
 
+```{r plot_options, include=FALSE, cache = TRUE}
+## Automatically use showtext to render text
+font_add_google("Open Sans", "open_sans")
+showtext_auto()
+
+thematic::thematic_on(bg = 'white',
+                      fg = 'black',
+                      accent = my_palette[[1]], 
+                      font = "open_sans",
+                      sequential = my_palette,
+                      qualitative = my_palette)
+# 
+# diss_theme <- theme_minimal() + 
+#   theme(text=element_text(family="open_sans"),
+#         plot.title = element_text(family="open_sans",size=25), 
+#         plot.subtitle = element_text(family="open_sans",size = 20),
+#         plot.caption = element_text(family="open_sans",size = 16),
+#         axis.title = element_text(family="open_sans",size = 20),
+#         axis.text = element_text(family="open_sans",size = 16),
+#         plot.title.position = "plot")
+
+  
 ```
 
 ```{r load_google}
@@ -90,7 +114,7 @@ longitudinal data set that I compiled from Google, the CDC, Facebook and other
 sources. To model mobility and vaccination rates, I linear mixed effects models
 with random effects as a longitudinal model of contagion.
 
-# TODO
+TODO
 to cite:
 - [@wimmerDomainsDiffusionHow2021]
 - vaccine misinformation [@mottaRepublicansNotDemocrats2021; @mottaIdentifyingPrevalenceCorrelates2021]
@@ -250,9 +274,7 @@ county-ego if the county-ego receives highly discordant signals.
 
 (@)  _Hypothesis 4_ the effect of signal direction on time spent in residence and vaccine uptake will be moderated by diversity in signals (discordance)
 
-<!-- TODO update figure to read discordance not assortativity -->
-
-```{r dag, fig.cap='Proposed Elaboratory Theoretical Model', out.width='50%'}
+```{r dag, fig.cap='Elaboratory Theoretical Model of Health Behavior Norms',fig.align="center", out.width='80%'}
 knitr::include_graphics(here('figs/dag.png'))
 ```
 
@@ -310,7 +332,10 @@ lead to resistance to the government and scientific guidance.
 
 # Objectives and Significance of the Study
 
-<!-- add to contribution - new concept of discordance, measurement of complex contagion, meso-level networks -->
+<!-- add to contribution - 
+new concept of discordance, 
+measurement of complex contagion, 
+meso-level networks -->
 
 This paper is an important contribution to a few different fields. It
 contributes to the literature on social influence and contagion, as social
@@ -397,10 +422,9 @@ datasummary(formula = (`Percent White` = p_white)  +
 
 ```
 
-```{r plot-google, cache = TRUE, fig.cap = "Stay-at-Home over Time", out.width="80%"}
+```{r plot-google, cache = TRUE, fig.cap = "Stay at Home over Time",fig.align="center", out.width="80%", dependson='plot_options'}
 
 # TODO : change font to Computer Modern
-
 
 plot_google <- vroom::vroom(here("data","covid-mobility", "2020_US_Region_Mobility_Report.csv"), show_col_types = FALSE)  %>%
   drop_na(census_fips_code) %>% 
@@ -416,13 +440,11 @@ plot_google <- vroom::vroom(here("data","covid-mobility", "2020_US_Region_Mobili
   ggplot(aes(x=date, y=SAH)) +
   geom_line(aes(group=FIPS), color = my_palette[2], alpha = .6) + 
   geom_smooth(color = my_palette[1]) +
-  theme_minimal() +
   labs(caption = 'Data from the Google Community Mobility Report',
        x = '', 
-       y = 'Stay-at-Home Rate, Percent change from baseline') +
-  theme(plot.title.position = "plot")
+       y = 'Stay-at-Home Rate, Percent change from baseline') 
 
-ggsave(filename = here('figs/plot-google.png'), plot_google)
+ggsave(filename = here('figs/plot-google.png'), plot_google, width = 5, height = 3)
 
 knitr::include_graphics(here('figs/plot-google.png'))
 ```
@@ -473,7 +495,7 @@ datasummary(formula = (`Percent White` = p_white)  +
             notes = c(glue("Notes: {format(length(counties), nsmall=1, big.mark=',')} counties, {format( min(vacc_dates), '%B %d')} through {format(max(vacc_dates), '%B %d')}, 2021."),"Raw values presented in table. Values in Models are normalized."))
 ```
 
-```{r plot-vacc, cache = TRUE, fig.cap = "Vaccination Rates over Time", out.width="80%"}
+```{r plot-vacc, cache = TRUE, fig.cap = "Vaccination Rates over Time", fig.align="center",out.width="80%"}
 
 
 
@@ -491,13 +513,11 @@ plot_vacc <- vroom::vroom(here("data","vaccination-rates", "COVID-19_Vaccination
   ggplot(aes(x=date, y=vacc_rate)) +
   geom_line(aes(group=FIPS), color = my_palette[2], alpha = .6) + 
   geom_smooth(color = my_palette[1]) +
-  theme_minimal() +
   labs(caption = 'Data from the CDC',
        x = '2021 Date', 
-       y = 'Vaccination Rate') +
-  theme(plot.title.position = "plot")
+       y = 'Vaccination Rate')
 
-ggsave(filename = here('figs/plot-vacc.png'), plot_vacc)
+ggsave(filename = here('figs/plot-vacc.png'), plot_vacc, width = 5, height = 3)
 
 knitr::include_graphics(here('figs/plot-vacc.png'))
 ```
@@ -509,7 +529,7 @@ knitr::include_graphics(here('figs/plot-vacc.png'))
 knitr::include_graphics(here('figs/sci-prob.png'))
 ```
 
-### Network signal
+### Network Signal
 
 Secondly, I utilize the likelihood of a friendship connection between counties
 to create a county-level social network weighted by the probability of a tie.
@@ -616,10 +636,7 @@ plot1a <- ggplot() +
             size = 3,
             vjust = -1,
             hjust = -0.15) + 
-  theme_minimal() +
-  theme(legend.position = 'none',
-        plot.title.position = "plot",
-        plot.title = element_text(size=10)) +
+  theme(legend.position = 'none') +
   scale_fill_manual(values=my_palette[1:7]) +
   scale_color_manual(values=my_palette[1:7]) +
   labs(title = 'Scatterplot of Signals and Discordance with 7 counties highlighted',
@@ -666,21 +683,17 @@ plot1b <- plot1b_data %>%
              size = 3, show.legend = FALSE) +
   geom_point(aes(x = movement_signal, y = name), size = 1, 
              color = '#4c4c4c', show.legend = FALSE, alpha = 0.6) +
-  theme_minimal() +
-  theme(plot.title.position = "plot",
-        plot.title = element_text(size=10),
-        plot.subtitle = element_text(size = 8)) +
   labs(x = 'Stay at Home Signals', y = '',
        title = 'Raw distribution of Stay at Home Signals per county with the weighted average and standard deviation highlighted',
        subtitle = 'Colored Point = Weighted Mean; Grey line = Weighted SD or spread of signals',
        caption = 'Weighted density plot, weighted by likelihood of Facebook Friendship connection')  +
   scale_fill_manual(values=my_palette[1:7]) +
-  scale_color_manual(values=my_palette[1:7]) 
+  scale_color_manual(values=my_palette[1:7])  
   
 
 ```
 
-```{r assortativity-vacc, dependson=c('load_vacc','discordance_extra_data_load'), cache = TRUE, fig.cap = 'How Signal Mean and Signal Assortativity are Measured', out.width="90%"}
+```{r assortativity-vacc, dependson=c('plot_options','load_vacc','discordance_extra_data_load'), cache = TRUE, fig.cap = 'How Signal Mean and Signal Assortativity are Measured',fig.align="center", out.width="90%"}
 
 plot1c_data <- vacc %>% 
   dplyr::filter(date == lubridate::ymd("2021-04-26")) %>%
@@ -709,14 +722,7 @@ plot1c <- ggplot() +
             size = 3,
             vjust = -1,
             hjust = -0.15) + 
-  theme_minimal() +
-  theme(legend.position = 'none',
-        plot.title.position = "plot",
-        plot.title = element_text(size=10),
-        plot.subtitle = element_text(size = 8),
-        plot.caption = element_text(size = 6),
-        axis.title = element_text(size = 8),
-        axis.text = element_text(size = 6)) +
+  theme(legend.position = 'none') +
   scale_fill_manual(values=my_palette[1:7]) +
   scale_color_manual(values=my_palette[1:7]) +
   labs(title = 'Scatterplot of Signals and Discordance with 7 counties highlighted',
@@ -747,24 +753,18 @@ plot1d <- plot1d_data %>%
              size = 3, show.legend = FALSE) +
   geom_point(aes(x = vacc_signal, y = name), size = 1, 
              color = '#4c4c4c', show.legend = FALSE, alpha = 0.6) +
-  theme_minimal() +
   labs(x = 'Vaccination Signals', y = '',
        title = 'Weighted Densities of Vaccination Signals per county with weighted average\nand standard deviation highlighted',
        subtitle = 'Colored Point = Weighted average; Grey line = Weighted SD, i.e. Discordance',
        caption = 'Densities Weighted by likelihood of Facebook Friendship connection')  +
-    theme(plot.title.position = "plot",
-        plot.title = element_text(size=10),
-        plot.subtitle = element_text(size = 8),
-        plot.caption = element_text(size = 6),
-        axis.title = element_text(size = 8),
-        axis.text = element_text(size = 6)) +
   scale_fill_manual(values=my_palette[1:7]) +
   scale_color_manual(values=my_palette[1:7]) 
   
 assort_plot <- plot1c/plot1d
 # +   plot_annotation(title = '')
 
-ggsave(filename = here('figs/assort_plot.png'), assort_plot, width = 7, height = 9)
+ggsave(filename = here('figs/assort_plot.png'), assort_plot,
+       width = 7, height = 9)
 
 knitr::include_graphics(here('figs/assort_plot.png'))
 ```
@@ -848,7 +848,7 @@ through 4 are obtained from the 2018 American Community Survey: 5-Year Estimates
 from the U.S. Bureau of Labor Statistics [@labor2020a].
 
 
-## Modeling Prodecures
+# Analysis and Results
 
 ```{r google_models, dependson='load_google', cache = TRUE}
 google <- google %>% 
@@ -937,41 +937,41 @@ vacc_h3 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over +
                                   maxIter = 1e8, msMaxIter = 1e8))
 ```
 
+My analytic strategy proceeds in four steps. In Tables
+\@ref(tab:google-desc-table (Stay-at-Home) and \@ref(tab:vacc-desc-table)
+(Vaccination Uptake), I present descriptive statistics for all study variables,
+including variable ranges, means, and standard deviations across the two cases.
+Then, in Tables \@ref(tab:google-tab) (Stay-at-Home) and \@ref(tab:vacc-tab)
+(Vaccination Uptake), I fit series of three linear mixed effects regression
+models using the nlme package in R [@pinheiro_etal21; @pinheiro_bates00] for our
+two cases, Stay-at-Home rates and Vaccination rates. Linear mixed effects models
+are a form of hierarchical linear models that contain both random and fixed
+effects. These models treat the dependent variables as continuous. Models 1
+through 3 address hypotheses 1 through 3 respectively. The following strategies
+I will outline are identical for both case studies. Each model utilizes
+normalized independent variables, i.e. variables that have been centered and
+scaled to have a mean of 0 and standard deviation 1. The first model is a
+baseline linear mixed effects model that employs all basic controls to predict
+the dependent variable, allowing both time-varying and county-level variables to
+predict the outcome. All variables have fixed effects, meaning that the
+county-level exogenous effects are controlled for when estimating the
+coefficient. In addition, models are specified with a random intercept per
+county. The lme models are set with a autoregressive correlation structure
+(`correlation = corAR1()`) to control for temporally autocorrelated error
+structures; models are also optimized using Nelder–Mead, quasi-Newton and
+conjugate-gradient algorithms for box-constrained optimization and simulated
+annealing (`control = lmeControl(opt = "optim")`). This model will address
+Hypothesis 1. To test hypothesis 2, I estimate model 2 which builds on model 1
+by first introducing the movement of vaccination signal. Because the signal
+varies by week, I estimate this model with an interaction between week and
+signal. Moreoever, because signal may have different effects across different
+counties, I set a random effect for both signal. A visual representation of this
+interaction can be seen in figures \@ref(fig:plot-google-h2) and
+\@ref(fig:plot-vacc-h2). Model 3 then builds on model 2, introducing a fixed
+effect for the interaction between signal and discordance. Model 4 tests
+hypothesis 4. Figures \@ref(fig:plot-google-h3) and \@ref(fig:plot-vacc-h3)
+depict how signal and discordance interact.
 
-
-Descriptive statistics for the stay-at-home rate model can be found in Table \@ref(tab:google-desc-table). Descriptive statistics for the vaccination uptake model can be found in Table \@ref(tab:vacc-desc-table). 
-
-
-For each case study, I employ a series of four linear mixed effects regression
-models using the nlme package in R [@pinheiro_etal21; @pinheiro_bates00] to
-address hypotheses 1 through 4. Linear mixed effects models are a form of
-hierarchical linear models that contain both random and fixed effects. These
-models treat the dependent variables as continuous. The following strategies I
-will outline are identical for both case studies. Each model utilizes normalized
-independent variables, i.e. variables that have been centered and scaled to have
-a mean of 0 and standard deviation 1. The first model is a baseline linear mixed
-effects model that employs all basic controls to predict the dependent variable,
-allowing both time-varying and county-level variables to predict the outcome.
-All variables have fixed effects, meaning that the county-level exogenous
-effects are controlled for when estimating the coefficient. In addition, models
-are specified with a random intercept per county. The lme models are set with a
-autoregressive correlation structure (`correlation = corAR1()`) to control for
-temporally autocorrelated error structures; models are also optimized using
-Nelder–Mead, quasi-Newton and conjugate-gradient algorithms for box-constrained
-optimization and simulated annealing (`control = lmeControl(opt = "optim")`).
-This model will address Hypothesis 1. To test hypothesis 2, I estimate model 2
-which builds on model 1 by first introducing the movement of vaccination
-signal. Because the signal varies by week, I estimate this model with an
-interaction between week and signal. Moreoever, because signal may have
-different effects across different counties, I set a random effect for both
-signal. A visual representation of this interaction can be seen in figures
-\@ref(fig:plot-google-h2) and \@ref(fig:plot-vacc-h2). Model 3 then builds on
-model 2, introducing a fixed effect for the interaction between signal and
-discordance. Model 4 tests hypothesis 4. Figures \@ref(fig:plot-google-h3) and
-\@ref(fig:plot-vacc-h3) depict how signal and discordance interact.
-
-
-# Results
 
 ## Stay at Home results
 
@@ -986,13 +986,13 @@ google_labels = c(
     'evangelical_county' = "Percent Evangelical Christian",
     'fox_news' = "'Fox News' Trend",
     'social_dist_trend' = "'Social Distancing' Trend",
-    'covid_conspiracy ' = "'Covid Conspiracy' Trend",
+    'covid_conspiracy' = "'Covid Conspiracy' Trend",
     'case_rate' = "Covid Case Rate",
     'week_num' = "Week Number",
-    'movement_signal' = "Movement Signal",
-    'week_num:movement_signal' = "Movement Signal x Week",
-    'movement_assor' = "Movement Discordance",
-    'movement_signal:movement_assor' = "Movement Signal x Discordance")
+    'movement_signal' = "Signal",
+    'week_num:movement_signal' = "Signal x Week",
+    'movement_assor' = "Signal Discordance",
+    'movement_signal:movement_assor' = "Signal x Signal Discordance")
 
 modelsummary(list(google_h1, google_h2, google_h3),
              title = "Linear Mixed Effects Regression Results for Stay-At-Home Rates",
@@ -1005,15 +1005,29 @@ modelsummary(list(google_h1, google_h2, google_h3),
 
 ```
 
+In Table \@ref(tab:google-tab) and Figures \@ref(fig:plot-google-h2) -
+\@ref(fig:plot-google-h3), I present the elaboratory county-level models that
+predict stay-at-home rates, or, time spent in residence. Models 1 addresses
+hypothesis 1, that relatively higher local rates of infection will lead to
+increased time spent in residence. In this first model, many controls have an
+impact on the outcome. For instance, when controlling for everything else, the
+counties' percent over 65 years old and Percent of GOP votes in 2016 decreased
+the stay-at-home rate while higher median income and higher rates of
+unemployment increased the stay-at-home rate. Searches for online norms seem to
+have an effect on the outcome: searches for 'Fox News' are associated with
+decreased stay-at-home rates, while searching for both 'Social Distancing' and
+'Covid Conspiracy' tend to increase time spent in residence. Interestingly, the
+perceived threat of the virus, measured through Covid-19 case rates, were not
+significantly related to stay-at-home rates in model 1. In other words, for
+every 1 standard deviation increase in Covid-19 case rates, stay-at-home rates
+actually decreased by
+`r round(summary(google_h1)$coefficients$fixed[['case_rate']], 4)` (_p_ =
+`r broom.mixed::tidy(google_h1) %>% filter(term == 'case_rate') %>% pull(p.value) %>% round(3)`), 
+a very small and insignificant effect. This model's phi paramter is 0.933,
+which is a good indicator that adjacent time points for each county are related
+and the model is specified correctly [@finch_etal14].
 
-1. Hypothesis 1 Relatively higher local rates of infection will lead to increased time spent in residence
-
-The parameter phi is .95, which is a good indicator that adjacent time points for each person are related.[@finch_etal14]
-
-\@ref(tab:google-tab)
-
-
-```{r plot-google-h2, dependson='google_models', cache = TRUE, fig.cap='Predicted Values of Stay at Home Rate by Movement Signal', out.width="80%"}
+```{r plot-google-h2, dependson='google_models', cache = TRUE, fig.cap='Predicted Values of Stay at Home Rate by Movement Signal', out.width="80%", fig.align="center"}
 pred2 <- ggpredict(google_h2, c("week_num", "movement_signal")) %>% as_tibble()
 
 pred2 <- pred2 %>% 
@@ -1024,30 +1038,45 @@ pred2 <- pred2 %>%
   ggplot(aes(x = x, y = predicted, color = group, fill = group)) + 
   geom_ribbon(aes(ymin = conf.low, ymax = conf.high),alpha = 0.5,color = NA) + 
   geom_line() + 
-  theme_minimal() + 
   labs(subtitle='Interaction of Week Number by Movement Signal',
        x = "Week Number", 
        y = "Stay at Home Rate (Change from Baseline)",
        fill = "Movement Signal", 
        color = "Movement Signal") +
   scale_fill_manual(values=my_palette[1:3]) +
-  scale_color_manual(values=my_palette[1:3]) +
-  theme(plot.title.position = "plot")
-ggsave(filename = here('figs/plot-google-h2.png'), pred2)
+  scale_color_manual(values=my_palette[1:3])
+
+ggsave(filename = here('figs/plot-google-h2.png'), pred2, width = 5, height = 3)
 
 knitr::include_graphics(here('figs/plot-google-h2.png'))
 
 ```
 
-2. Hypothesis 2 increased average time spent in residence (signal direction) from alters will have a positive effect on time spent in residence for the ego-county
+Table \@ref(tab:google-tab) Model 2 investigates Hypothesis 2, that increased
+average time spent in residence (signal direction) from alters will have a
+positive effect on stay-at-home rates for the ego-county. This model builds on
+model 1 by adding in the variable for Movement Signal (see [Network
+Signal](#network-signal) for specifications). For every one standard deviation
+increase in the average time spent in residence of the structurally (word this
+better) closest counties, an ego tends to also increase its' own stay-at-home
+rate by `r broom.mixed::tidy(google_h2) %>% filter(term == 'movement_signal') %>% pull(estimate) %>% round(3)`
+(_p_ < 0.001). However, this coefficient is inadequate alone
+because the effect varies over time; the interaction between week and movement
+signal is negative, meaning that week partially moderates the effect of the
+signal. Figure \@ref(fig:plot-google-h2) illustrates this interaction. In the
+early days of the Covid-19 pandemic, seeing a high rate of time spent in
+residence by alters led to a high rate of staying-at-home for county egos.
+However, as the pandemic progressed, these signals switched. In other words,
+towards the end of 2020, other factors may have come into play and if a county
+saw its' alters social distancing and spending time in residence, ego counties
+spent less time at home. Theoretically, this may be because individuals saw
+their adjacent communities with strong public health norms and felt safe and
+justified their own deviance. However, if an ego county received signals that
+others were failing to social distance, they were more likely to stay-at-home.
+In this case, the threat of the virus may have been more evident for
+individuals.
 
-So if you SEE your friends moving around more, you start staying at home more. ~
-Righteous superiority. If you see people staying at home, you assume it’s safer
-and then start moving around more.
-
-See Figure \@ref(fig:plot-google-h2).
-
-```{r plot-google-h3, dependson='google_models', cache = TRUE, fig.cap='Predicted Values of Stay at Home Rate Moderated', out.width="80%"}
+```{r plot-google-h3, dependson=c('plot_options','google_models'), cache = TRUE, fig.cap='Predicted Values of Stay at Home Rate Moderated', out.width="80%",fig.align="center"}
 pred3 <- ggpredict(google_h3, c("movement_signal", "movement_assor")) %>% as_tibble()
 pred3 <- pred3 %>% 
   mutate(group = case_when(group == 1 ~ "Discordance",
@@ -1057,31 +1086,40 @@ pred3 <- pred3 %>%
   ggplot(aes(x = x, y = predicted, color = group, fill = group)) + 
   geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.5, color = NA) + 
   geom_line() + 
-  theme_minimal() + 
-  labs(subtitle='Interaction of Movement Signal by Movement Discordance',
+  labs(subtitle='Interaction of Movement Signal by Movement Signal Discordance',
        x = "Movement Signal",
        y = "Stay at Home Rate (Change from Baseline)",
-       fill = "Movement\nDiscordance",
-       color = "Movement\nDiscordance") +
+       fill = "Movement Signal\nDiscordance",
+       color = "Movement Signal\nDiscordance") +
   scale_fill_manual(values=my_palette[1:3]) +
-  scale_color_manual(values=my_palette[1:3]) +
-  theme(plot.title.position = "plot")
+  scale_color_manual(values=my_palette[1:3]) 
 
-ggsave(filename = here('figs/plot-google-h3.png'), pred3)
+ggsave(filename = here('figs/plot-google-h3.png'), pred3, width = 5, height = 3)
 
 knitr::include_graphics(here('figs/plot-google-h3.png'))
 ```
-3. Hypothesis 3 the effect of signal direction on time spent in residence will be moderated by diversity in signals (Discordance)
 
-high Discordance = completely moderates the social influence effect
-low Discordance , condensed signal = allows for social influence to have an effect
-
-High signal Discordance moderates the effects of the signal. Explicitly, if
-a county is receiving a wide array of low and high signals, their stay at home
-rates won't be affected. When a signal is concentrated or in agreement, the
-theoretical effect of movement signaling on the ego are the strongest.
-
-See Figure \@ref(fig:plot-google-h3).
+Model 3 then adds the concept of Signal Discordance to investigate Hypothesis 3,
+that the effect of signal direction on stay-at-home rates will be moderated by a
+diversity in signals (_discordance_). Many of the controls remain consistent
+throughout the models, with the exception of 'Social Distancing' Trend whose
+effect has been completed mediated by the inclusion of signal discordance.
+Importantly, signal discordance has a negative effect on stay-at-home rates,
+where every one standard deviation increase in discordance lowers rates by
+`r broom.mixed::tidy(google_h3) %>% filter(term == 'movement_assor') %>% pull(estimate) %>% round(3)` 
+(_p_ < 0.001). The interaction between signal and signal discordance have a
+coefficient of a similar magnitude, with every one standard deviation increase
+in discordance and signal resulting in
+`r broom.mixed::tidy(google_h3) %>% filter(term == 'movement_signal:movement_assor') %>% pull(estimate) %>% round(3)` 
+lower rates of time spent in residence. Figure \@ref(fig:plot-google-h3)
+illustrates the moderating effect that signal discordance has on signal. Under
+high discordance, the social influence effect is completely moderated because
+there is no clear story or norm forming. However, under low discordance, the
+signal is condensed, allowing for social influence to have an effect.
+Explicitly, if a county is receiving a wide array of low and high signals, their
+stay at home rates won't be affected. When a signal is concentrated or in
+agreement, the theoretical effect of movement signaling on the ego are the
+strongest.
 
 ## vaccines results
 
@@ -1096,7 +1134,7 @@ vacc_labels = c(
     'evangelical_county' = "Percent Evangelical Christian",
     'fox_news' = "'Fox News' Trend",
     'vaccine_trend' = "'Vaccine' Trend",
-    'covid_conspiracy ' = "'Covid Conspiracy' Trend",
+    'covid_conspiracy' = "'Covid Conspiracy' Trend",
     'case_rate' = "Covid Case Rate",
     'week_num' = "Week Number",
     'vacc_signal' = "Vaccination Signal",
@@ -1123,7 +1161,7 @@ for each person are related. References: [@finch_etal14]
 \@ref(tab:vacc-tab)
 
 
-```{r plot-vacc-h2, dependson='vacc_models', cache = TRUE, fig.cap='Predicted Values of Vaccination Rate', out.width="80%"}
+```{r plot-vacc-h2, dependson=c('plot_options','vacc_models'), cache = TRUE, fig.cap='Predicted Values of Vaccination Rate', out.width="80%",fig.align="center"}
 pred4 <- ggpredict(vacc_h2, c("week_num", "vacc_signal")) %>% as_tibble()
 
 pred4 <- pred4 %>% 
@@ -1134,17 +1172,15 @@ pred4 <- pred4 %>%
 ggplot(aes(x = x, y = predicted, color = group, fill = group)) + 
   geom_ribbon(aes(ymin = conf.low,ymax = conf.high),alpha = 0.5,color = NA) + 
     geom_line() + 
-  theme_minimal() + 
   labs(subtitle='Interaction of Week Number by Vaccination Signal',
        x = "Week Number", 
        y = "Percent Fully Vaccinated, scaled)",
        fill = "Vaccination Signal", 
        color = "Vaccination Signal") +
   scale_fill_manual(values=my_palette[1:3]) +
-  scale_color_manual(values=my_palette[1:3]) +
-  theme(plot.title.position = "plot")
+  scale_color_manual(values=my_palette[1:3]) 
 
-ggsave(filename = here('figs/plot-vacc-h2.png'), pred4)
+ggsave(filename = here('figs/plot-vacc-h2.png'), pred4, width = 5, height = 3)
 
 knitr::include_graphics(here('figs/plot-vacc-h2.png'))
 ```
@@ -1153,7 +1189,7 @@ knitr::include_graphics(here('figs/plot-vacc-h2.png'))
 see a lot vaccinated, get vaccinated. see few vaccinated, don't vaccinate.
 See Figure \@ref(fig:plot-vacc-h2).
 
-```{r plot-vacc-h3, dependson='vacc_models', cache = TRUE, fig.cap='Predicted Values of Vaccination Rate', out.width="80%"}
+```{r plot-vacc-h3, dependson=c('plot_options','vacc_models'), cache = TRUE, fig.cap='Predicted Values of Vaccination Rate', out.width="80%",fig.align="center"}
 pred5 <- ggpredict(vacc_h3, c("vacc_signal", "vacc_assor")) %>% as_tibble()
 pred5<-pred5 %>% 
   mutate(group = case_when(group == 1 ~ "Discordance",
@@ -1162,19 +1198,16 @@ pred5<-pred5 %>%
          group = fct_relevel(as.factor(group), c("Discordance", "Average", "Concordance"))) %>% 
 ggplot(aes(x = x, y = predicted, color = group, fill = group)) + 
   geom_ribbon(aes(ymin = conf.low,ymax = conf.high),alpha = 0.5,color = NA) + 
-    geom_line() + 
-
- theme_minimal() + 
+  geom_line() + 
   labs(subtitle='Interaction of Vaccination Signal by Vaccination Discordance',
                                    x = "Vaccination Signal",
                                    y = "Vaccination Rate (in Percent)",
                                    fill = "Vaccination\nDiscordance",
                                    color = "Vaccination\nDiscordance") +
   scale_fill_manual(values=my_palette[1:3]) +
-  scale_color_manual(values=my_palette[1:3]) +
-  theme(plot.title.position = "plot")
+  scale_color_manual(values=my_palette[1:3]) 
 
-ggsave(filename = here('figs/plot-vacc-h3.png'), pred5)
+ggsave(filename = here('figs/plot-vacc-h3.png'), pred5, width = 5, height = 3)
 
 knitr::include_graphics(here('figs/plot-vacc-h3.png'))
 ```
