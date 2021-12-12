@@ -30,50 +30,91 @@ indent: true
 knitr::opts_chunk$set(echo = FALSE, 
                       message = FALSE,
                       warning = FALSE,
-                      cache = TRUE)
-                      # dev.args = list(png = list(type = "cairo")))
-               
+                      cache = TRUE,
+                      fig.width = 7,
+                      fig.asp = 0.8,
+                      out.width = "80%",
+                      fig.align="center"
+                      # dev.args = list(png = list(type = "cairo"))
+                      )
+
 
 # knitr::opts_knit$get("rmarkdown.pandoc.to")
 
 pacman::p_load(tidyverse, here, nlme, 
                sjPlot, ggeffects, patchwork, ggridges,
                glue, modelsummary, showtext, thematic, broom.mixed)
-my_palette = c('#56b4e9','#999999','#E69F00','#009E73','#CC79A7','#0072B2','#D55E00','#E69F00')
 
 count_to_state <- read_csv("https://raw.githubusercontent.com/kjhealy/fips-codes/master/county_fips_master.csv") %>% 
   mutate(FIPS = str_pad(fips, 5, pad = "0")) %>% 
   select(FIPS, state_abbr)
 ```
 
+```{r plot_options, cache = TRUE}
+my_palette = c('#56b4e9','#999999','#E69F00','#009E73','#CC79A7','#0072B2','#D55E00','#E69F00')
+my_palette  <- c(MetBrewer::met.brewer(name = 'Cross', type = 'discrete'), '#555F61')
 
-```{r plot_options, include=FALSE, cache = TRUE}
 ## Automatically use showtext to render text
 font_add_google("Open Sans", "open_sans")
 showtext_auto()
 
-thematic::thematic_on(bg = 'white',
-                      fg = 'black',
-                      accent = my_palette[[1]], 
-                      font = "open_sans",
-                      sequential = my_palette,
-                      qualitative = my_palette)
-# 
-# diss_theme <- theme_minimal() + 
-#   theme(text=element_text(family="open_sans"),
-#         plot.title = element_text(family="open_sans",size=25), 
-#         plot.subtitle = element_text(family="open_sans",size = 20),
-#         plot.caption = element_text(family="open_sans",size = 16),
-#         axis.title = element_text(family="open_sans",size = 20),
-#         axis.text = element_text(family="open_sans",size = 16),
-#         plot.title.position = "plot")
+theme_diss <- function(base_size = 14) {
+  theme_minimal(base_size = base_size) %+replace%
+    theme(
+      # Figure assembly
+      plot.title = element_text(family="open_sans",
+                                size = rel(1), 
+                                face = "bold",
+                                margin = margin(0,0,5,0), 
+                                hjust = 0),
+      plot.title.position = "plot",
+      plot.subtitle = element_text(family="open_sans",
+                                   size = rel(0.85)),
+      plot.caption = element_text(family="open_sans",
+                                  size = rel(0.70)),
+      # Graphical Zones
+      panel.grid.minor = element_blank(),
+      panel.border = element_blank(),
+      # Axes
+      axis.title = element_text(family="open_sans", 
+                                size = rel(0.85),
+                                face = "bold"),
+      axis.text = element_text(family="open_sans", 
+                               size = rel(0.70), 
+                               face = "bold"),
+      axis.line = element_line(color = "black", 
+                               arrow = arrow(length = unit(0.3, "lines"), 
+                                             type = "closed")),
+      # Legend
+      legend.title = element_text(family="open_sans",
+                                  size = rel(0.85), 
+                                  face = "bold"),
+      legend.text = element_text(family="open_sans", 
+                                 size = rel(0.70), 
+                                 face = "bold"),
+      legend.key = element_rect(fill = "transparent", 
+                                colour = NA),
+      legend.key.size = unit(1.5, "lines"),
+      legend.background = element_rect(fill = "transparent", 
+                                       colour = NA),
+      # Facetting 
+      strip.background = element_rect(fill = "#17252D",
+                                      color = "#17252D"),
+      strip.text = element_text(family="open_sans",
+                                size = rel(0.85), 
+                                face = "bold", 
+                                color = "white", 
+                                margin = margin(5,0,5,0))
+    )
+}
 
-  
+theme_set(theme_diss()) # change theme_ben() with the wanted theme
+
 ```
 
 ```{r load_google}
 # source("data-cleaning.R")
-google <- read_csv(here("data", "google_movement_main.csv"), show_col_types = FALSE)  %>% 
+google_raw <- read_csv(here("data", "google_movement_main.csv"), show_col_types = FALSE)  %>% 
   drop_na() %>% 
   select(FIPS, date, SAH, movement_assor, movement_signal, 
          case_rate, p_white, p_black, p_college, p_hispanic,
@@ -85,14 +126,14 @@ google <- read_csv(here("data", "google_movement_main.csv"), show_col_types = FA
 
 ```{r load_vacc}
 # source("data-cleaning.R")
-vacc <- read_csv(here("data", "vacc_main.csv"), show_col_types = FALSE)  %>% 
+vacc_raw <- read_csv(here("data", "vacc_main.csv"), show_col_types = FALSE)  %>% 
   select(FIPS, date, vacc_rate, vacc_signal, vacc_assor,
          case_rate, p_white, p_black, p_college, p_hispanic,
          perc_65_over, unemployed_rate, income_med, population,
          trump_votes_2020, evangelical_county, 
          fox_news, covid_19_vaccine, covid_conspiracy) %>% 
   drop_na() %>% 
-    mutate(week_num = as.numeric((date - lubridate::ymd("2020-03-02")) / 7))
+    mutate(week_num = as.numeric((date - lubridate::ymd("2020-12-28")) / 7))
 
 
 ```
@@ -147,9 +188,9 @@ throughout 2020 and 2021, policy makers often struggle to promote public
 adoption of policies that rely on the publics' willingness to adjust their
 current 'risky' behaviors to less-risk behaviors based on scientific facts. The
 lack of adaption to newly recommended behaviors is partially due to the
-variation in the levels of understanding of the threats of the disease
+variation in how individuals understand the threats of the disease
 [@bailey_etal20], but it is also due to the current norms that are already in
-place. TODO: discuss norms, how it's hard to diverge from current norms, habitus 
+place and that form in response to the policy. TODO: discuss norms, how it's hard to diverge from current norms, habitus 
 <!-- TODO -->
 
 
@@ -274,9 +315,6 @@ county-ego if the county-ego receives highly discordant signals.
 
 (@)  _Hypothesis 4_ the effect of signal direction on time spent in residence and vaccine uptake will be moderated by diversity in signals (discordance)
 
-```{r dag, fig.cap='Elaboratory Theoretical Model of Health Behavior Norms',fig.align="center", out.width='80%'}
-knitr::include_graphics(here('figs/dag.png'))
-```
 
 
 ### Associative Diffusion
@@ -296,9 +334,6 @@ individuals. While this cognitive theory of cultural variation is difficult to
 test, the theory it supplies provides a solid framework for how behavioral norms
 formed during the pandemic.
 
-```{r norm-framework, fig.cap='Preliminary model of norm formation'}
-knitr::include_graphics(here('figs/model.png'))
-```
 
 The figure above illustrates how I interpret associative diffusion will impact
 population movement and vaccination rates in times of unsettled norms. An
@@ -372,7 +407,7 @@ Google calculates the relative change in mobility in comparison to the median
 value of movement in the area for the same the corresponding day of the week,
 during the 5-week period Jan 3–Feb 6, 2020. As Google did not provide data on
 certain US counties if they did not have sufficient statistically significant
-levels of data, my final county sample is _n_ = `r google %>% count(FIPS) %>% nrow()`
+levels of data, my final county sample is _n_ = `r google_raw %>% count(FIPS) %>% nrow()`
 (compared to the total population of 3,107 US counties). Particular areas that
 are excluded in this analysis include all counties in Alaska and DC, and over
 half of the counties in North Dakota, South Dakota, and a few other counties.
@@ -383,7 +418,7 @@ Monday in the sample for 44 measures from March 02, 2020 through December 28,
 2020.
 
 ```{r, include = FALSE, eval = FALSE}
-included = google %>% count(FIPS) %>% pull(FIPS)
+included = google_raw %>% count(FIPS) %>% pull(FIPS)
 count_to_state %>% 
   mutate(in_data = ifelse(FIPS %in% included, TRUE, FALSE)) %>% 
   count(state_abbr, in_data) %>%
@@ -395,60 +430,6 @@ count_to_state %>%
   arrange(-percent_missing)
 ```
 
-
-```{r google-desc-table, results = "asis"}
-counties <- google %>% count(FIPS) %>% pull(FIPS)
-google_dates <- google %>% count(date) %>% pull(date)
-
-datasummary(formula = (`Percent White` = p_white)  +
-              (`Percent College Graduates` = p_college) +
-              (`Percent over 65` = perc_65_over) +
-              (`Median Income` = income_med) +
-              (`Monthly Unemployment Rate` = unemployed_rate) +
-              (`Percent of GOP votes, 2016` = trump_votes_2016) +
-              (`Percent Evangelical Christian` = evangelical_county) +
-              (`'Fox News' Trend` = fox_news) +
-              (`'Social Distancing' Trend` = social_dist_trend) +
-              (`'Covid Conspiracy' Trend` = covid_conspiracy) +
-              (`Covid Case Rate` = case_rate) +
-              (`Week Number` = week_num) +
-              (`Movement Signal` = movement_signal) +
-              (`Movement Discordance` = movement_assor)  ~ 
-              min + max + mean + sd, 
-            data = google,
-            title = 'Descriptive Statistics for Stay-at-Home Models (county-level)',
-            notes =c(glue("Notes: {format(length(counties), nsmall=1, big.mark=',')} counties, {format( min(google_dates), '%B %d')} through {format(max(google_dates), '%B %d')}, 2020."),
-                     "Raw values presented in table. Values in models are normalized."))
-
-```
-
-```{r plot-google, cache = TRUE, fig.cap = "Stay at Home over Time",fig.align="center", out.width="80%", dependson='plot_options'}
-
-# TODO : change font to Computer Modern
-
-plot_google <- vroom::vroom(here("data","covid-mobility", "2020_US_Region_Mobility_Report.csv"), show_col_types = FALSE)  %>%
-  drop_na(census_fips_code) %>% 
-  select(date, FIPS = census_fips_code, SAH = residential_percent_change_from_baseline) %>% 
-  filter(!is.na(FIPS)) %>%
-  complete(date, FIPS)  %>% 
-  group_by(FIPS) %>%
-  mutate(sumNA = sum(ifelse(is.na(SAH), 1, 0))) %>% 
-  filter(sumNA < 200) %>% 
-  fill(SAH, .direction = 'downup') %>%
-  filter(!is.na(SAH)) %>% 
-  mutate(SAH = zoo::rollmean(SAH, k = 7, fill = "extend"))  %>% 
-  ggplot(aes(x=date, y=SAH)) +
-  geom_line(aes(group=FIPS), color = my_palette[2], alpha = .6) + 
-  geom_smooth(color = my_palette[1]) +
-  labs(caption = 'Data from the Google Community Mobility Report',
-       x = '', 
-       y = 'Stay-at-Home Rate, Percent change from baseline') 
-
-ggsave(filename = here('figs/plot-google.png'), plot_google, width = 5, height = 3)
-
-knitr::include_graphics(here('figs/plot-google.png'))
-```
-		
 
 ## COVID vaccination uptake
 
@@ -464,70 +445,14 @@ level information is available, and California does not report the county of
 residence for vaccinations when the county of residence has a population less
 than 20,000 people. Finally, Massachusetts does not provide vaccination data for
 Barnstable, Dukes, and Nantucket counties because of their small populations.
-Therefore, my final county sample for vaccination rates is _n_ = `r vacc %>% count(FIPS) %>% nrow()` 
+Therefore, my final county sample for vaccination rates is _n_ = `r vacc_raw %>% count(FIPS) %>% nrow()` 
 (compared to the total population of 3,107 US counties). A list of included FIPS
 are available upon request. Vaccination rates are scaled with a rolling mean
 with a rolling window width of seven days to smooth out inter-week noise. I
 sample every Monday between January 2021 through August 30 2021 for 35 total
 observations for each county. 
 
-```{r vacc-desc-table, results = "asis"}
-counties <- vacc %>% count(FIPS) %>% pull(FIPS)
-vacc_dates <- vacc %>% count(date) %>% pull(date)
-
-datasummary(formula = (`Percent White` = p_white)  +
-              (`Percent College Graduates` = p_college) +
-              (`Percent over 65` = perc_65_over) +
-              (`Median Income` = income_med) +
-              (`Monthly Unemployment Rate` = unemployed_rate) +
-              (`Percent of GOP votes, 2020` = trump_votes_2020) +
-              (`Percent Evangelical Christian` = evangelical_county) +
-              (`'Fox News' Trend` = fox_news) +
-              (`'Covid-19 vaccine' Trend` = covid_19_vaccine) +
-              (`'Covid Conspiracy' Trend` = covid_conspiracy) +
-              (`Covid Case Rate` = case_rate) +
-              (`Week Number` = week_num) +
-              (`Vaccination Signal` = vacc_signal) +
-              (`Vaccination Discordance` = vacc_assor)  ~ 
-              min + max + mean + sd, 
-            data = vacc,
-            title = 'Descriptive Statistics for Vaccination Models (county-level)',
-            notes = c(glue("Notes: {format(length(counties), nsmall=1, big.mark=',')} counties, {format( min(vacc_dates), '%B %d')} through {format(max(vacc_dates), '%B %d')}, 2021."),"Raw values presented in table. Values in Models are normalized."))
-```
-
-```{r plot-vacc, cache = TRUE, fig.cap = "Vaccination Rates over Time", fig.align="center",out.width="80%"}
-
-
-
-plot_vacc <- vroom::vroom(here("data","vaccination-rates", "COVID-19_Vaccinations_in_the_United_States_County.csv"), show_col_types = FALSE) %>% 
-  mutate(date = lubridate::mdy(Date, quiet = TRUE)) %>% 
-  select(FIPS, date, vacc_rate = Series_Complete_Pop_Pct) %>% 
-  left_join(count_to_state, by = "FIPS") %>% 
-  filter( ! (state_abbr %in% c("HI", "TX")),
-          ! (FIPS %in% c('25001', '25007', '25019')),
-          ! (FIPS %in% c("06003","06027", "06043", "06049", "06051", "06063", "06091", "06105")),
-          (FIPS != 'UNK')) %>% 
-  complete(date, FIPS)  %>% 
-  group_by(FIPS) %>%
-  mutate(vacc_rate = zoo::rollmean(vacc_rate, k = 7, fill = NA)) %>% 
-  ggplot(aes(x=date, y=vacc_rate)) +
-  geom_line(aes(group=FIPS), color = my_palette[2], alpha = .6) + 
-  geom_smooth(color = my_palette[1]) +
-  labs(caption = 'Data from the CDC',
-       x = '2021 Date', 
-       y = 'Vaccination Rate')
-
-ggsave(filename = here('figs/plot-vacc.png'), plot_vacc, width = 5, height = 3)
-
-knitr::include_graphics(here('figs/plot-vacc.png'))
-```
-
-
 ## Independent Variables
-
-```{r sci, fig.cap='Relative Probability of Link to SF County, CA (Bailey et al. 2018)', include=FALSE}
-knitr::include_graphics(here('figs/sci-prob.png'))
-```
 
 ### Network Signal
 
@@ -586,188 +511,10 @@ discordance = \sqrt{\frac{\sum_{i=1}^nw_i(x_i-\bar{x}^*)^2}{\sum^n_{i=1}w_i}} (\
 Figure \@ref(fig:assortativity-vacc) provides a visualization of both network
 signal and signal discordance for April 26, 2021 for 7 selected counties
 ^[Figures in this paper were all created using ggplot2 and patchwork [@pedersen;
-@wickham_etal, @wickham11]]. While a county like Lake County, Ohio has low
+@wickham_etal; @wickham11] ]. While a county like Lake County, Ohio has low
 discordance meaning the signal of vaccination rate is reinforced, Navajo County,
 Arizona receives very diverse signals from their county-alters, negating any
 contagion effects.
-
-
-```{r discordance_extra_data_load}
-sample = c("08003", '55057', '51059', '39085', 
-           # '36119',
-           '34021', '12071', '04017' )
-
-sci <- readr::read_tsv(here('data', 'social-connectedness', 'county_county.tsv') ) %>% 
-  mutate(scaled_sci = scaled_sci/1000000000) %>%
-  filter(scaled_sci > 0.00001)
-
-count_to_state <- read_csv("https://raw.githubusercontent.com/kjhealy/fips-codes/master/county_fips_master.csv") %>% 
-  mutate(FIPS = str_pad(fips, 5, pad = "0"),
-        name = paste0(county_name,", " ,state_abbr)) %>% 
-  select(FIPS, name)
-```
-
-```{r assortativity-google, dependson=c('load_google','discordance_extra_data_load'), include=FALSE, eval = FALSE}
-
-plot1a_data <- google %>% 
-  dplyr::filter(date == lubridate::ymd("2020-04-06")) %>%
-  left_join(count_to_state, by = "FIPS") %>% 
-  mutate(name = ifelse(FIPS %in% sample, name, NA_character_),
-         size= ifelse(FIPS %in% sample, 2, 1),
-         alpha= ifelse(FIPS %in% sample, 1, .5)) 
-
-plot1a <- ggplot() + 
-  #background points)
-  geom_point(data = filter(plot1a_data, is.na(name)), 
-             aes(x = movement_signal, y = movement_assor), 
-             size = 1,
-             alpha = .25,
-             color = 'grey') + 
-  #highlighted points
-  geom_point(data = filter(plot1a_data, !is.na(name)), 
-             aes(x = movement_signal, y = movement_assor, color = fct_reorder(name,movement_assor)),
-             size = 4,
-             alpha = 1) +
-  geom_text(data = filter(plot1a_data, !is.na(name)),
-            aes(x = movement_signal, 
-                y = movement_assor, 
-                label =  fct_reorder(name,movement_assor),
-                color =  fct_reorder(name,movement_assor)), 
-            size = 3,
-            vjust = -1,
-            hjust = -0.15) + 
-  theme(legend.position = 'none') +
-  scale_fill_manual(values=my_palette[1:7]) +
-  scale_color_manual(values=my_palette[1:7]) +
-  labs(title = 'Scatterplot of Signals and Discordance with 7 counties highlighted',
-       x = 'Stay at Home Signals', y = 'Signal Discordance')
-
-plot1b_data <- vroom::vroom(here("data","covid-mobility", "2020_US_Region_Mobility_Report.csv"), 
-                            show_col_types = FALSE)  %>% 
-  drop_na(census_fips_code) %>% 
-  select(date, FIPS = census_fips_code, SAH = residential_percent_change_from_baseline) %>% 
-  filter(!is.na(FIPS)) %>%
-  group_by(FIPS) %>%
-  mutate(SAH = tidyr::replace_na(SAH, 0),
-         SAH = zoo::rollmean(SAH, k = 7, fill = NA),
-         wday = lubridate::wday(date, label=TRUE)) %>% 
-  filter(wday == "Mon",
-         !is.na(SAH)) %>% 
-  select(FIPS, date, SAH) %>% 
-  ungroup()  
-
-plot1b_data <- plot1b_data %>% 
-  filter(FIPS %in% sample,
-         date == lubridate::ymd("2020-04-06")) %>%
-  select(-SAH) %>% 
-  dplyr::mutate(date_lag = date - 7) %>% 
-  dplyr::left_join(sci, by = c("FIPS" = "user_loc")) %>%     
-  dplyr::left_join(plot1b_data, by = c(c("fr_loc" = "FIPS"),
-                                       c("date_lag" = "date"))) %>%
-  left_join(count_to_state, by = "FIPS") %>% 
-  left_join(select(google, FIPS, date, movement_signal, movement_assor), by = c('date', 'FIPS'))
-
-plot1b <- plot1b_data %>% 
-  mutate(name = fct_reorder(name, movement_assor)) %>% 
-  filter(FIPS != fr_loc) %>% 
-  ggplot() + 
-  geom_density_ridges(aes(x = SAH, y = name, fill = name, weight = scaled_sci, height=..density..), 
-                      alpha = 0.5, show.legend = FALSE, color = NA,
-                      stat='density') +
-  geom_segment(aes(x = (movement_signal - movement_assor) , 
-                   xend = (movement_signal + movement_assor),
-                   y = name, 
-                   yend = name), lineend = 'butt', size = 2,
-               show.legend = FALSE, alpha = 0.6, color = '#4c4c4c') +
-  geom_point(aes(x = movement_signal, y = name, color = name), 
-             size = 3, show.legend = FALSE) +
-  geom_point(aes(x = movement_signal, y = name), size = 1, 
-             color = '#4c4c4c', show.legend = FALSE, alpha = 0.6) +
-  labs(x = 'Stay at Home Signals', y = '',
-       title = 'Raw distribution of Stay at Home Signals per county with the weighted average and standard deviation highlighted',
-       subtitle = 'Colored Point = Weighted Mean; Grey line = Weighted SD or spread of signals',
-       caption = 'Weighted density plot, weighted by likelihood of Facebook Friendship connection')  +
-  scale_fill_manual(values=my_palette[1:7]) +
-  scale_color_manual(values=my_palette[1:7])  
-  
-
-```
-
-```{r assortativity-vacc, dependson=c('plot_options','load_vacc','discordance_extra_data_load'), cache = TRUE, fig.cap = 'How Signal Mean and Signal Assortativity are Measured',fig.align="center", out.width="90%"}
-
-plot1c_data <- vacc %>% 
-  dplyr::filter(date == lubridate::ymd("2021-04-26")) %>%
-  left_join(count_to_state, by = "FIPS") %>% 
-  mutate(name = ifelse(FIPS %in% sample, name, NA_character_),
-         size= ifelse(FIPS %in% sample, 2, 1),
-         alpha= ifelse(FIPS %in% sample, 1, .5)) 
-
-plot1c <- ggplot() + 
-  #background points)
-  geom_point(data = filter(plot1c_data, is.na(name)), 
-             aes(x = vacc_signal, y = vacc_assor), 
-             size = 1,
-             alpha = .25,
-             color = 'grey') + 
-  #highlighted points
-  geom_point(data = filter(plot1c_data, !is.na(name)), 
-             aes(x = vacc_signal, y = vacc_assor, color = fct_reorder(name,vacc_assor)),
-             size = 4,
-             alpha = 1) +
-  geom_text(data = filter(plot1c_data, !is.na(name)),
-            aes(x = vacc_signal, 
-                y =vacc_assor, 
-                label =  fct_reorder(name,vacc_assor),
-                color =  fct_reorder(name,vacc_assor)), 
-            size = 3,
-            vjust = -1,
-            hjust = -0.15) + 
-  theme(legend.position = 'none') +
-  scale_fill_manual(values=my_palette[1:7]) +
-  scale_color_manual(values=my_palette[1:7]) +
-  labs(title = 'Scatterplot of Signals and Discordance with 7 counties highlighted',
-       x = 'Vaccination Signals', y = 'Signal Discordance')
-
-plot1d_data <- tibble(FIPS = sample, date = lubridate::ymd("2021-04-26")) %>% 
-  dplyr::mutate(date_lag = date - 7) %>% 
-  dplyr::left_join(sci, by = c("FIPS" = "user_loc")) %>%     
-  dplyr::inner_join(select(vacc, date, FIPS, vacc_rate), by = c(c("fr_loc" = "FIPS"),
-                                       c("date_lag" = "date"))) %>%
-  left_join(count_to_state, by = "FIPS") %>% 
-  left_join(select(vacc, FIPS, date, vacc_signal, vacc_assor), by = c('date', 'FIPS'))
-
-plot1d <- plot1d_data %>% 
-  mutate(name = fct_reorder(name, vacc_assor)) %>% 
-  filter(FIPS != fr_loc) %>% 
-  ggplot() + 
-  geom_density_ridges(aes(x = vacc_rate, y = name, fill = name, weight = scaled_sci,
-                          height=..density..), 
-                      alpha = 0.5, show.legend = FALSE, color = NA,
-                      stat='density') +
-  geom_segment(aes(x = (vacc_signal - vacc_assor) , 
-                   xend = (vacc_signal + vacc_assor),
-                   y = name, 
-                   yend = name), lineend = 'butt', size = 2,
-               show.legend = FALSE, alpha = 0.6, color = '#4c4c4c') +
-  geom_point(aes(x = vacc_signal, y = name, color = name), 
-             size = 3, show.legend = FALSE) +
-  geom_point(aes(x = vacc_signal, y = name), size = 1, 
-             color = '#4c4c4c', show.legend = FALSE, alpha = 0.6) +
-  labs(x = 'Vaccination Signals', y = '',
-       title = 'Weighted Densities of Vaccination Signals per county with weighted average\nand standard deviation highlighted',
-       subtitle = 'Colored Point = Weighted average; Grey line = Weighted SD, i.e. Discordance',
-       caption = 'Densities Weighted by likelihood of Facebook Friendship connection')  +
-  scale_fill_manual(values=my_palette[1:7]) +
-  scale_color_manual(values=my_palette[1:7]) 
-  
-assort_plot <- plot1c/plot1d
-# +   plot_annotation(title = '')
-
-ggsave(filename = here('figs/assort_plot.png'), assort_plot,
-       width = 7, height = 9)
-
-knitr::include_graphics(here('figs/assort_plot.png'))
-```
 
 
 ### Case Rate
@@ -851,7 +598,7 @@ from the U.S. Bureau of Labor Statistics [@labor2020a].
 # Analysis and Results
 
 ```{r google_models, dependson='load_google', cache = TRUE}
-google <- google %>% 
+google <- google_raw %>% 
   mutate(across(SAH:covid_conspiracy , ~ scale(.x, center=TRUE, scale=TRUE)))
 
 google_h1 = lme(fixed = SAH ~ p_white + p_college + perc_65_over + 
@@ -900,7 +647,7 @@ google_h3 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over +
 #   geom_tile() + geom_text(aes(label = value)) + 
 #   theme(axis.text.x = element_text(angle = 45))
 
-vacc <- vacc %>% 
+vacc <- vacc_raw %>% 
   mutate(across(vacc_rate:covid_conspiracy, ~(scale(.x, scale = TRUE, center = TRUE)))) 
 
 
@@ -968,13 +715,250 @@ signal. Moreoever, because signal may have different effects across different
 counties, I set a random effect for both signal. A visual representation of this
 interaction can be seen in figures \@ref(fig:plot-google-h2) and
 \@ref(fig:plot-vacc-h2). Model 3 then builds on model 2, introducing a fixed
-effect for the interaction between signal and discordance. Model 4 tests
+effect for the interaction between signal and discordance*. Model 4 tests
 hypothesis 4. Figures \@ref(fig:plot-google-h3) and \@ref(fig:plot-vacc-h3)
 depict how signal and discordance interact.
 
+* currently there is only an interaction because the vacc model won't converge because the interaction causes confounding. It may stay like ths, but leaving a TODO.
 
-## Stay at Home results
+## Stay-at-Home Rate results
 
+
+In Table \@ref(tab:google-tab) and Figures \@ref(fig:plot-google-h2) -
+\@ref(fig:plot-google-h3), I present the elaboratory county-level models that
+predict stay-at-home rates, or, time spent in residence. Model 1 addresses
+hypothesis 1, that relatively higher local rates of infection will lead to
+increased time spent in residence. In this first model, many controls have an
+impact on the outcome. For instance, when controlling for everything else, the
+counties' percent over 65 years old and Percent of GOP votes in 2016 decreased
+the stay-at-home rate while higher median income and higher rates of
+unemployment increased the stay-at-home rate. Searches for online norms seem to
+have an effect on the outcome: searches for 'Fox News' are associated with
+decreased stay-at-home rates, while searching for both 'Social Distancing' and
+'Covid Conspiracy' tend to increase time spent in residence. Interestingly, the
+perceived threat of the virus, measured through Covid-19 case rates, were not
+significantly related to stay-at-home rates in model 1. In other words, for
+every 1 standard deviation increase in Covid-19 case rates, stay-at-home rates
+actually decreased by
+`r round(summary(google_h1)$coefficients$fixed[['case_rate']], 4)` (_p_ =
+`r broom.mixed::tidy(google_h1) %>% filter(term == 'case_rate') %>% pull(p.value) %>% round(3)`), 
+a very small and insignificant effect. This model's phi paramter is 0.933,
+which is a good indicator that adjacent time points for each county are related
+and the model is specified correctly [@finch_etal14].
+
+
+Table \@ref(tab:google-tab) Model 2 investigates Hypothesis 2, that increased
+average time spent in residence (signal direction) from alters will have a
+positive effect on stay-at-home rates for the ego-county. This model builds on
+model 1 by adding in the variable for Movement Signal (see [Network
+Signal](#network-signal) for specifications). For every one standard deviation
+increase in the average time spent in residence of the structurally (word this
+better) closest counties, an ego tends to also increase its' own stay-at-home
+rate by `r broom.mixed::tidy(google_h2) %>% filter(term == 'movement_signal') %>% pull(estimate) %>% round(3)`
+(_p_ < 0.001). However, this coefficient is inadequate alone
+because the effect varies over time; the interaction between week and movement
+signal is negative, meaning that week partially moderates the effect of the
+signal. Figure \@ref(fig:plot-google-h2) illustrates this interaction. In the
+early days of the Covid-19 pandemic, seeing a high rate of time spent in
+residence by alters led to a high rate of staying-at-home for county egos.
+However, as the pandemic progressed, these signals switched. In other words,
+towards the end of 2020, other factors may have come into play and if a county
+saw its' alters social distancing and spending time in residence, ego counties
+spent less time at home. Theoretically, this may be because individuals saw
+their adjacent communities with strong public health norms and felt safe and
+justified their own deviance. However, if an ego county received signals that
+others were failing to social distance, they were more likely to stay-at-home.
+In this case, the threat of the virus may have been more evident for
+individuals.
+
+Model 3 then adds the concept of Signal Discordance to investigate Hypothesis 3,
+that the effect of signal direction on stay-at-home rates will be moderated by a
+diversity in signals (_discordance_). Many of the controls remain consistent
+throughout the models, with the exception of 'Social Distancing' Trend whose
+effect has been completed mediated by the inclusion of signal discordance.
+Importantly, signal discordance has a negative effect on stay-at-home rates,
+where every one standard deviation increase in discordance lowers rates by
+`r broom.mixed::tidy(google_h3) %>% filter(term == 'movement_assor') %>% pull(estimate) %>% round(3)` 
+(_p_ < 0.001). The interaction between signal and signal discordance have a
+coefficient of a similar magnitude, with every one standard deviation increase
+in discordance and signal resulting in
+`r broom.mixed::tidy(google_h3) %>% filter(term == 'movement_signal:movement_assor') %>% pull(estimate) %>% round(3)` 
+lower rates of time spent in residence. Figure \@ref(fig:plot-google-h3)
+illustrates the moderating effect that signal discordance has on signal. Under
+high discordance, the social influence effect is completely moderated because
+there is no clear story or norm forming. However, under low discordance, the
+signal is condensed, allowing for social influence to have an effect.
+Explicitly, if a county is receiving a wide array of low and high signals, their
+stay at home rates won't be affected. When a signal is concentrated or in
+agreement, the theoretical effect of movement signaling on the ego are the
+strongest.
+
+## Vaccination Rate results
+
+In Table \@ref(tab:vacc-tab) and Figures \@ref(fig:plot-vacc-h2) -
+\@ref(fig:plot-vacc-h3), I present the elaboratory county-level models that
+predict vaccination uptake rates. Table \@ref(tab:vacc-tab) Model 1 addresses
+hypothesis 1, that relatively higher local rates of infection will lead to
+increased vaccination uptake. In this first model, we see various controls
+impacting vaccination rates. For instance, when controlling for everything else,
+areas with higher percent White residents, areas with higher percent over 65 and
+higher income areas lead to higher vaccination uptake. On the other hand, counties
+with higher unemployment, higher votes for Donald J. Trump in the 2020 election,
+are associated with lower vaccination rates. Interestingly, counties that search
+for Fox News are more likely to have higher vaccination rates which those
+searching for information about the vaccine on Google are likely to have lower
+rates of vaccination. The test of Hypothesis 2 also returns surprising results:
+every 1 standard deviation increase in county Covid-19 case rates is expected to
+yield a `r broom.mixed::tidy(vacc_h1) %>% filter(term == 'case_rate') %>% pull(estimate) %>% round(3)`
+decrease in vaccination rates. This may be due to time ordering or reverse
+causality, where individuals in counties who have higher rates of vaccination
+are less likely to take tests to Covid-19 infections because of the higher
+likelihood of asymptomaticity. However, it is important to note that the Case
+Rate variable actually becomes distorted with the addition of Vaccination Signal
+and Vaccination Discordance in models 2 and 3. Distortion occurs when the
+direction of a focal relationship reverses sign once a third (distorter)
+variable is controlled, in this case, those related to signal. The parameter phi
+is .99, which is a good indicator that adjacent time points for each county are
+related and this is an appropriate modeling technique for the data [@finch_etal14].
+<!-- TODO double check this number on vacc models -->
+
+Table \@ref(tab:vacc-tab) model 2 tests the hypothesis 2 that increase vaccine
+uptake by alters will have a positive effect on vaccine uptake for the
+ego-county. The results are incredibly clear: seeing alter counties receiving
+vaccines is associated with higher vaccination rates. Specifically, a 1 standard
+deviation increase in vaccine signal, the average rate of vaccination of a
+county's alters, is associated with a 
+`r broom.mixed::tidy(vacc_h2) %>% filter(term == 'vacc_signal') %>% pull(estimate) %>% round(3)` 
+percent increase of vaccination rates for the ego county. The interaction of
+vaccine signal can be seen in Figure \@ref(fig:plot-vacc-h2). While the
+interaction is not as extreme as the results for Hypothesis 2 for Stay-at-Home
+rates, there is still a distinction between high and low vaccination signals
+over time. The slope for Higher Vaccination Signal is less pronounced than Low
+Vaccination Signal. This is likely an artifact where some counties vaccinated
+broadly early on, so their vaccination rate stays rather constant in later
+weeks. However, overall, the message is clear: ego-counties who 'see' high
+levels of vaccinations among their alters have higher vaccination rates; those
+who don't see that social norm forming are much less likely to vaccinate.
+
+Model 3 then models the moderation of signal direction for vaccine uptake by
+diversity in signals (Discordance), Hypothesis 3.
+
+see consistent high signals, most likely to get vaccinated, see inconsistent
+signals but still high, less likely but still decently likely to raise
+vaccination rates.
+
+* won't interpret now, as there is no interaction to look at because of
+convergence issues.
+
+
+See Figure \@ref(fig:plot-vacc-h3).
+
+
+# Conclusion
+<!-- There are a few clear limitations to this study. This is sensitive to -->
+<!-- aggregation error and sampling error from who the mobility and social -->
+<!-- connectedness data is coming from. The aggregation errors are potentially linked -->
+<!-- to the assumption that the average mobility behavior of a county is a good -->
+<!-- representation of the diversity in movement behaviors within that county. -->
+<!-- However, aggregating the network data provides a unique network perspective that -->
+<!-- hasn't, to my knowledge, been explored. Sociological research has long debated -->
+<!-- about the agency of individuals and the social and institutional structure in -->
+<!-- which individuals are immersed. In this study, I aggregate beyond the individual -->
+<!-- case to explore overall patterns of movement which summarizes individual agency -->
+<!-- of movement together. -->
+
+<!-- Another limitation of this study is possible sampling error. This project draws -->
+<!-- on two big-data sources [@facebook20; @google2020]. While Facebook and Google -->
+<!-- do extract data from a large portion of the population, I must be mindful of the -->
+<!-- sampling issues involved in both data sets. The Facebook data is potentially -->
+<!-- biased by both a skew of who allows location permissions but also who has a -->
+<!-- Facebook account and has added their friends. While I have not found any -->
+<!-- research comparing the demographics of Facebook users to actual population (JK CHECK OUT [@bailey_etal18; @jones_etal13]), it -->
+<!-- is easy to theorize how it may over or underrepresent different subsets of the -->
+<!-- population in different areas [@salganikBitBitSocial2017 Section 2.3.6]. The friendship -->
+<!-- indicator should also be read critically, because some individuals add everyone -->
+<!-- they know as a friend, others add only close personal friends, and another -->
+<!-- subset of the population adds many people who they do not know offline -->
+<!-- [@courtoisSocialNetworkProfiles2012]. To my knowledge, there has been little research testing -->
+<!-- whether these friendships represent offline connections [@golder2007rhythms; -->
+<!-- @dunbar2016online]. In my case, however, the question of an online connection -->
+<!-- versus and offline connection is unimportant because the movement contagion -->
+<!-- could spread through online communication, offline communication, or simply -->
+<!-- shared news stories and informal knowledge networks [@kittsRethinkingSocialNetworks2020]. -->
+
+<!-- The Google data must also be read critically because it is based on the -->
+<!-- geo-behavioral data collected through Google Maps from users who have turned on -->
+<!-- the Location History setting, which is off by default. This means our sample is -->
+<!-- skewed to people in the United States a) with a mobile phone, b) with a Google -->
+<!-- account, and c) with knowledge of how to synchronize their location history. -->
+<!-- These requirements likely mean that there mobility data is skewed to a younger, -->
+<!-- more affluent audience. Google has not made it clear whether their demographic -->
+<!-- biases in their location history data are weighted in some way to rebalance the -->
+<!-- data set so that it is representative -->
+<!-- [@wangForecastingElectionsNonrepresentative2015; @salganikBitBitSocial2017, -->
+<!-- Section 2.3.6]. It is therefore possible that the sampling bias may confound my -->
+<!-- results if the age distribution through a population is associated with mobility -->
+<!-- during COVID-19. Furthermore, Google has defined time spent in residential areas -->
+<!-- without much context or explanation for how they classify a residential area. In -->
+<!-- counties with a lot of vertical mobility (i.e. skyscrapers) where a residential -->
+<!-- area may overlap with a shopping mall, there is a much larger margin of error. -->
+
+\newpage
+# References {-}
+
+<div id="refs"></div>
+
+\newpage
+# Tables {-}
+
+```{r google-desc-table, results = "asis"}
+counties <- google_raw %>% count(FIPS) %>% pull(FIPS)
+google_dates <- google_raw %>% count(date) %>% pull(date)
+
+datasummary(formula = (`Percent White` = p_white)  +
+              (`Percent College Graduates` = p_college) +
+              (`Percent over 65` = perc_65_over) +
+              (`Median Income` = income_med) +
+              (`Monthly Unemployment Rate` = unemployed_rate) +
+              (`Percent of GOP votes, 2016` = trump_votes_2016) +
+              (`Percent Evangelical Christian` = evangelical_county) +
+              (`'Fox News' Trend` = fox_news) +
+              (`'Social Distancing' Trend` = social_dist_trend) +
+              (`'Covid Conspiracy' Trend` = covid_conspiracy) +
+              (`Covid Case Rate` = case_rate) +
+              (`Week Number` = week_num) +
+              (`Movement Signal` = movement_signal) +
+              (`Movement Discordance` = movement_assor)  ~ 
+              min + max + mean + sd, 
+            data = google_raw,
+            title = 'Descriptive Statistics for Stay-at-Home Models (county-level)',
+            notes =c(glue("Notes: {format(length(counties), nsmall=1, big.mark=',')} counties, {format( min(google_dates), '%B %d')} through {format(max(google_dates), '%B %d')}, 2020."),
+                     "Raw values presented in table. Values in models are normalized."))
+
+```
+```{r vacc-desc-table, results = "asis"}
+counties <- vacc_raw %>% count(FIPS) %>% pull(FIPS)
+vacc_dates <- vacc_raw %>% count(date) %>% pull(date)
+
+datasummary(formula = (`Percent White` = p_white)  +
+              (`Percent College Graduates` = p_college) +
+              (`Percent over 65` = perc_65_over) +
+              (`Median Income` = income_med) +
+              (`Monthly Unemployment Rate` = unemployed_rate) +
+              (`Percent of GOP votes, 2020` = trump_votes_2020) +
+              (`Percent Evangelical Christian` = evangelical_county) +
+              (`'Fox News' Trend` = fox_news) +
+              (`'Covid-19 vaccine' Trend` = covid_19_vaccine) +
+              (`'Covid Conspiracy' Trend` = covid_conspiracy) +
+              (`Covid Case Rate` = case_rate) +
+              (`Week Number` = week_num) +
+              (`Vaccination Signal` = vacc_signal) +
+              (`Vaccination Discordance` = vacc_assor)  ~ 
+              min + max + mean + sd, 
+            data = vacc_raw,
+            title = 'Descriptive Statistics for Vaccination Models (county-level)',
+            notes = c(glue("Notes: {format(length(counties), nsmall=1, big.mark=',')} counties, {format( min(vacc_dates), '%B %d')} through {format(max(vacc_dates), '%B %d')}, 2021."),"Raw values presented in table. Values in Models are normalized."))
+```
 ```{r google-tab, dependson='google_models', cache = TRUE,  results = 'asis' }
 google_labels = c(
     'p_white'="Percent White",
@@ -1004,126 +988,7 @@ modelsummary(list(google_h1, google_h2, google_h3),
              gof_omit = 'AIC|BIC|ICC|RMSE')
 
 ```
-
-In Table \@ref(tab:google-tab) and Figures \@ref(fig:plot-google-h2) -
-\@ref(fig:plot-google-h3), I present the elaboratory county-level models that
-predict stay-at-home rates, or, time spent in residence. Models 1 addresses
-hypothesis 1, that relatively higher local rates of infection will lead to
-increased time spent in residence. In this first model, many controls have an
-impact on the outcome. For instance, when controlling for everything else, the
-counties' percent over 65 years old and Percent of GOP votes in 2016 decreased
-the stay-at-home rate while higher median income and higher rates of
-unemployment increased the stay-at-home rate. Searches for online norms seem to
-have an effect on the outcome: searches for 'Fox News' are associated with
-decreased stay-at-home rates, while searching for both 'Social Distancing' and
-'Covid Conspiracy' tend to increase time spent in residence. Interestingly, the
-perceived threat of the virus, measured through Covid-19 case rates, were not
-significantly related to stay-at-home rates in model 1. In other words, for
-every 1 standard deviation increase in Covid-19 case rates, stay-at-home rates
-actually decreased by
-`r round(summary(google_h1)$coefficients$fixed[['case_rate']], 4)` (_p_ =
-`r broom.mixed::tidy(google_h1) %>% filter(term == 'case_rate') %>% pull(p.value) %>% round(3)`), 
-a very small and insignificant effect. This model's phi paramter is 0.933,
-which is a good indicator that adjacent time points for each county are related
-and the model is specified correctly [@finch_etal14].
-
-```{r plot-google-h2, dependson='google_models', cache = TRUE, fig.cap='Predicted Values of Stay at Home Rate by Movement Signal', out.width="80%", fig.align="center"}
-pred2 <- ggpredict(google_h2, c("week_num", "movement_signal")) %>% as_tibble()
-
-pred2 <- pred2 %>% 
-  mutate(group = case_when(group == 1 ~ "High",
-                           group == 0 ~ "Average",
-                           group == -1 ~ "Low"),
-         group = fct_relevel(group, c("Low", "Average", "High"))) %>% 
-  ggplot(aes(x = x, y = predicted, color = group, fill = group)) + 
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high),alpha = 0.5,color = NA) + 
-  geom_line() + 
-  labs(subtitle='Interaction of Week Number by Movement Signal',
-       x = "Week Number", 
-       y = "Stay at Home Rate (Change from Baseline)",
-       fill = "Movement Signal", 
-       color = "Movement Signal") +
-  scale_fill_manual(values=my_palette[1:3]) +
-  scale_color_manual(values=my_palette[1:3])
-
-ggsave(filename = here('figs/plot-google-h2.png'), pred2, width = 5, height = 3)
-
-knitr::include_graphics(here('figs/plot-google-h2.png'))
-
-```
-
-Table \@ref(tab:google-tab) Model 2 investigates Hypothesis 2, that increased
-average time spent in residence (signal direction) from alters will have a
-positive effect on stay-at-home rates for the ego-county. This model builds on
-model 1 by adding in the variable for Movement Signal (see [Network
-Signal](#network-signal) for specifications). For every one standard deviation
-increase in the average time spent in residence of the structurally (word this
-better) closest counties, an ego tends to also increase its' own stay-at-home
-rate by `r broom.mixed::tidy(google_h2) %>% filter(term == 'movement_signal') %>% pull(estimate) %>% round(3)`
-(_p_ < 0.001). However, this coefficient is inadequate alone
-because the effect varies over time; the interaction between week and movement
-signal is negative, meaning that week partially moderates the effect of the
-signal. Figure \@ref(fig:plot-google-h2) illustrates this interaction. In the
-early days of the Covid-19 pandemic, seeing a high rate of time spent in
-residence by alters led to a high rate of staying-at-home for county egos.
-However, as the pandemic progressed, these signals switched. In other words,
-towards the end of 2020, other factors may have come into play and if a county
-saw its' alters social distancing and spending time in residence, ego counties
-spent less time at home. Theoretically, this may be because individuals saw
-their adjacent communities with strong public health norms and felt safe and
-justified their own deviance. However, if an ego county received signals that
-others were failing to social distance, they were more likely to stay-at-home.
-In this case, the threat of the virus may have been more evident for
-individuals.
-
-```{r plot-google-h3, dependson=c('plot_options','google_models'), cache = TRUE, fig.cap='Predicted Values of Stay at Home Rate Moderated', out.width="80%",fig.align="center"}
-pred3 <- ggpredict(google_h3, c("movement_signal", "movement_assor")) %>% as_tibble()
-pred3 <- pred3 %>% 
-  mutate(group = case_when(group == 1 ~ "Discordance",
-                           group == 0 ~ "Average",
-                           group == -1 ~ "Concordance"),
-         group = fct_relevel(group, c("Discordance", "Average", "Concordance"))) %>% 
-  ggplot(aes(x = x, y = predicted, color = group, fill = group)) + 
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.5, color = NA) + 
-  geom_line() + 
-  labs(subtitle='Interaction of Movement Signal by Movement Signal Discordance',
-       x = "Movement Signal",
-       y = "Stay at Home Rate (Change from Baseline)",
-       fill = "Movement Signal\nDiscordance",
-       color = "Movement Signal\nDiscordance") +
-  scale_fill_manual(values=my_palette[1:3]) +
-  scale_color_manual(values=my_palette[1:3]) 
-
-ggsave(filename = here('figs/plot-google-h3.png'), pred3, width = 5, height = 3)
-
-knitr::include_graphics(here('figs/plot-google-h3.png'))
-```
-
-Model 3 then adds the concept of Signal Discordance to investigate Hypothesis 3,
-that the effect of signal direction on stay-at-home rates will be moderated by a
-diversity in signals (_discordance_). Many of the controls remain consistent
-throughout the models, with the exception of 'Social Distancing' Trend whose
-effect has been completed mediated by the inclusion of signal discordance.
-Importantly, signal discordance has a negative effect on stay-at-home rates,
-where every one standard deviation increase in discordance lowers rates by
-`r broom.mixed::tidy(google_h3) %>% filter(term == 'movement_assor') %>% pull(estimate) %>% round(3)` 
-(_p_ < 0.001). The interaction between signal and signal discordance have a
-coefficient of a similar magnitude, with every one standard deviation increase
-in discordance and signal resulting in
-`r broom.mixed::tidy(google_h3) %>% filter(term == 'movement_signal:movement_assor') %>% pull(estimate) %>% round(3)` 
-lower rates of time spent in residence. Figure \@ref(fig:plot-google-h3)
-illustrates the moderating effect that signal discordance has on signal. Under
-high discordance, the social influence effect is completely moderated because
-there is no clear story or norm forming. However, under low discordance, the
-signal is condensed, allowing for social influence to have an effect.
-Explicitly, if a county is receiving a wide array of low and high signals, their
-stay at home rates won't be affected. When a signal is concentrated or in
-agreement, the theoretical effect of movement signaling on the ego are the
-strongest.
-
-## vaccines results
-
-```{r vacc-tab, dependson='google_models', cache = TRUE,  results = 'asis' }
+```{r vacc-tab, dependson='vacc_models', cache = TRUE,  results = 'asis' }
 vacc_labels = c(
     'p_white'="Percent White",
     'p_college' = "Percent College Graduates",
@@ -1133,7 +998,7 @@ vacc_labels = c(
     'trump_votes_2020' = "Percent of GOP votes, 2020",
     'evangelical_county' = "Percent Evangelical Christian",
     'fox_news' = "'Fox News' Trend",
-    'vaccine_trend' = "'Vaccine' Trend",
+    'covid_19_vaccine' = "'Vaccine' Trend",
     'covid_conspiracy' = "'Covid Conspiracy' Trend",
     'case_rate' = "Covid Case Rate",
     'week_num' = "Week Number",
@@ -1153,18 +1018,197 @@ modelsummary(list(vacc_h1, vacc_h2, vacc_h3),
 
 ```
 
-1. Hypothesis 1 Relatively higher local rates of infection will lead to increased vaccination uptake
+\newpage
+# Figures {-}
+```{r dag, fig.cap='Elaboratory Theoretical Model of Health Behavior Norms'}
+knitr::include_graphics(here('figs/dag.png'))
+```
 
-The parameter phi is .99, which is a good indicator that adjacent time points
-for each person are related. References: [@finch_etal14]
+```{r norm-framework, fig.cap='Preliminary model of norm formation'}
+knitr::include_graphics(here('figs/model.png'))
+```
 
-\@ref(tab:vacc-tab)
+```{r plot-google, cache = TRUE, fig.cap = "Stay at Home Rates over Time", dependson='plot_options'}
+
+vroom::vroom(here("data","covid-mobility", "2020_US_Region_Mobility_Report.csv"), show_col_types = FALSE)  %>%
+  drop_na(census_fips_code) %>% 
+  select(date, FIPS = census_fips_code, SAH = residential_percent_change_from_baseline) %>% 
+  filter(!is.na(FIPS)) %>%
+  complete(date, FIPS)  %>% 
+  group_by(FIPS) %>%
+  mutate(sumNA = sum(ifelse(is.na(SAH), 1, 0))) %>% 
+  filter(sumNA < 200) %>% 
+  fill(SAH, .direction = 'downup') %>%
+  filter(!is.na(SAH)) %>% 
+  mutate(SAH = zoo::rollmean(SAH, k = 7, fill = "extend"))  %>% 
+  ggplot(aes(x=date, y=SAH)) +
+  geom_line(aes(group=FIPS), color = tail(my_palette, n=1), alpha = .6) + 
+  geom_smooth(color = my_palette[7]) +
+  labs(caption = 'Data from the Google Community Mobility Report',
+       x = '2020 Date', 
+       y = 'Stay-at-Home Rate, Percent change from baseline') 
+
+```
+		
+```{r plot-vacc, cache = TRUE, fig.cap = "Vaccination Rates over Time", dependson='plot_options'}
+
+vroom::vroom(here("data","vaccination-rates", "COVID-19_Vaccinations_in_the_United_States_County.csv"), show_col_types = FALSE) %>% 
+  mutate(date = lubridate::mdy(Date, quiet = TRUE)) %>% 
+  select(FIPS, date, vacc_rate = Series_Complete_Pop_Pct) %>% 
+  left_join(count_to_state, by = "FIPS") %>% 
+  filter( ! (state_abbr %in% c("HI", "TX")),
+          ! (FIPS %in% c('25001', '25007', '25019')),
+          ! (FIPS %in% c("06003","06027", "06043", "06049", "06051", "06063", "06091", "06105")),
+          (FIPS != 'UNK')) %>% 
+  complete(date, FIPS)  %>% 
+  group_by(FIPS) %>%
+  mutate(vacc_rate = zoo::rollmean(vacc_rate, k = 7, fill = NA)) %>% 
+  ggplot(aes(x=date, y=vacc_rate)) +
+  geom_line(aes(group=FIPS), color = tail(my_palette, n=1), alpha = .6) + 
+  geom_smooth(color = my_palette[7]) +
+  labs(caption = 'Data from the CDC',
+       x = '2021 Date', 
+       y = 'Vaccination Rate')
+
+```
+
+```{r sci, fig.cap='Relative Probability of Link to SF County, CA (Bailey et al. 2018)', include=FALSE}
+knitr::include_graphics(here('figs/sci-prob.png'))
+```
+
+```{r discordance_extra_data_load}
+sample = c("08003", '55057', '51059', '39085', 
+           # '36119',
+           '34021', '12071', '04017' )
+
+sci <- readr::read_tsv(here('data', 'social-connectedness', 'county_county.tsv') ) %>% 
+  mutate(scaled_sci = scaled_sci/1000000000) %>%
+  filter(scaled_sci > 0.00001)
+
+count_to_state <- read_csv("https://raw.githubusercontent.com/kjhealy/fips-codes/master/county_fips_master.csv") %>% 
+  mutate(FIPS = str_pad(fips, 5, pad = "0"),
+        name = paste0(county_name,", " ,state_abbr)) %>% 
+  select(FIPS, name)
+```
+
+```{r assortativity-vacc, dependson=c('plot_options','load_vacc','discordance_extra_data_load'), cache = TRUE, fig.cap = 'How Signal Mean and Signal Assortativity are Measured', out.width="90%", fig.asp = 1.5}
+
+plot1c_data <- vacc_raw %>% 
+  dplyr::filter(date == lubridate::ymd("2021-04-26")) %>%
+  left_join(count_to_state, by = "FIPS") %>% 
+  mutate(name = ifelse(FIPS %in% sample, name, NA_character_),
+         size= ifelse(FIPS %in% sample, 2, 1),
+         alpha= ifelse(FIPS %in% sample, 1, .5)) 
+
+plot1c <- ggplot() + 
+  #background points)
+  geom_point(data = filter(plot1c_data, is.na(name)), 
+             aes(x = vacc_signal, y = vacc_assor), 
+             size = 1,
+             alpha = .25,
+             color = 'grey') + 
+  #highlighted points
+  geom_point(data = filter(plot1c_data, !is.na(name)), 
+             aes(x = vacc_signal, y = vacc_assor, color = fct_reorder(name,vacc_assor)),
+             size = 4,
+             alpha = 1) +
+  geom_text(data = filter(plot1c_data, !is.na(name)),
+            aes(x = vacc_signal, 
+                y =vacc_assor, 
+                label =  fct_reorder(name,vacc_assor),
+                color =  fct_reorder(name,vacc_assor)), 
+            size = 3,
+            vjust = -1,
+            hjust = -0.15) + 
+  theme(legend.position = 'none') +
+  scale_fill_manual(values=my_palette[1:7]) +
+  scale_color_manual(values=my_palette[1:7]) +
+  labs(title = 'Scatterplot of Signals and Discordance with 7 counties highlighted',
+       x = 'Vaccination Signals for 04-26-2021', y = 'Signal Discordance')
+
+plot1d_data <- tibble(FIPS = sample, date = lubridate::ymd("2021-04-26")) %>% 
+  dplyr::mutate(date_lag = date - 7) %>% 
+  dplyr::left_join(sci, by = c("FIPS" = "user_loc")) %>%     
+  dplyr::inner_join(select(vacc_raw, date, FIPS, vacc_rate), by = c(c("fr_loc" = "FIPS"),
+                                       c("date_lag" = "date"))) %>%
+  left_join(count_to_state, by = "FIPS") %>% 
+  left_join(select(vacc_raw, FIPS, date, vacc_signal, vacc_assor), by = c('date', 'FIPS'))
+
+plot1d <- plot1d_data %>% 
+  mutate(name = fct_reorder(name, vacc_assor)) %>% 
+  filter(FIPS != fr_loc) %>% 
+  ggplot() + 
+  geom_density_ridges(aes(x = vacc_rate, y = name, fill = name, weight = scaled_sci,
+                          height=..density..), 
+                      alpha = 0.5, show.legend = FALSE, color = NA,
+                      stat='density') +
+  geom_segment(aes(x = (vacc_signal - vacc_assor) , 
+                   xend = (vacc_signal + vacc_assor),
+                   y = name, 
+                   yend = name), lineend = 'butt', size = 2,
+               show.legend = FALSE, alpha = 0.6, color = '#4c4c4c') +
+  geom_point(aes(x = vacc_signal, y = name, color = name), 
+             size = 3, show.legend = FALSE) +
+  geom_point(aes(x = vacc_signal, y = name), size = 1, 
+             color = '#4c4c4c', show.legend = FALSE, alpha = 0.6) +
+  labs(x = 'Vaccination Signals for 04-26-2021', y = '',
+       title = 'Weighted Densities of Vaccination Signals per county with weighted average\nand standard deviation highlighted',
+       subtitle = 'Colored Point = Weighted average; Grey line = Weighted SD, i.e. Discordance',
+       caption = 'Densities Weighted by likelihood of Facebook Friendship connection')  +
+  scale_fill_manual(values=my_palette[1:7]) +
+  scale_color_manual(values=my_palette[1:7]) 
+  
+plot1c/plot1d
+
+```
+
+```{r plot-google-h2, dependson=c('plot_options','google_models'), cache = TRUE, fig.cap='Predicted Values of Stay at Home Rate by Movement Signal'}
+pred2 <- ggpredict(google_h2, c("week_num", "movement_signal")) %>% as_tibble()
+
+pred2 %>% 
+  mutate(group = case_when(group == 1 ~ "High",
+                           group == 0 ~ "Average",
+                           group == -1 ~ "Low"),
+         group = fct_relevel(group, c("Low", "Average", "High"))) %>% 
+  ggplot(aes(x = x, y = predicted, color = group, fill = group)) + 
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high),alpha = 0.5,color = NA) + 
+  geom_line() + 
+  labs(title='Interaction of Week Number by Movement Signal',
+       x = "Week Number", 
+       y = "Stay at Home Rate (Change from Baseline)",
+       fill = "Movement Signal", 
+       color = "Movement Signal") +
+  scale_fill_manual(values=my_palette[c(2,5,8)]) +
+  scale_color_manual(values=my_palette[c(2,5,8)])
 
 
-```{r plot-vacc-h2, dependson=c('plot_options','vacc_models'), cache = TRUE, fig.cap='Predicted Values of Vaccination Rate', out.width="80%",fig.align="center"}
+```
+
+```{r plot-google-h3, dependson=c('plot_options','google_models'), cache = TRUE, fig.cap='Predicted Values of Stay at Home Rate Moderated'}
+pred3 <- ggpredict(google_h3, c("movement_signal", "movement_assor")) %>% as_tibble()
+
+pred3 %>% 
+  mutate(group = case_when(group == 1 ~ "Discordance",
+                           group == 0 ~ "Average",
+                           group == -1 ~ "Concordance"),
+         group = fct_relevel(group, c("Discordance", "Average", "Concordance"))) %>% 
+  ggplot(aes(x = x, y = predicted, color = group, fill = group)) + 
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.5, color = NA) + 
+  geom_line() + 
+  labs(title='Interaction of Movement Signal by Movement Signal Discordance',
+       x = "Movement Signal",
+       y = "Stay at Home Rate (Change from Baseline)",
+       fill = "Movement Signal\nDiscordance",
+       color = "Movement Signal\nDiscordance") +
+  scale_fill_manual(values=my_palette[c(2,5,8)]) +
+  scale_color_manual(values=my_palette[c(2,5,8)]) 
+
+```
+
+```{r plot-vacc-h2, dependson=c('plot_options','vacc_models'), cache = TRUE, fig.cap='Predicted Values of Vaccination Rate'}
 pred4 <- ggpredict(vacc_h2, c("week_num", "vacc_signal")) %>% as_tibble()
 
-pred4 <- pred4 %>% 
+pred4 %>% 
   mutate(group = case_when(group == 1 ~ "High",
                            group == 0 ~ "Average",
                            group == -1 ~ "Low"),
@@ -1172,26 +1216,19 @@ pred4 <- pred4 %>%
 ggplot(aes(x = x, y = predicted, color = group, fill = group)) + 
   geom_ribbon(aes(ymin = conf.low,ymax = conf.high),alpha = 0.5,color = NA) + 
     geom_line() + 
-  labs(subtitle='Interaction of Week Number by Vaccination Signal',
+  labs(title='Interaction of Week Number by Vaccination Signal',
        x = "Week Number", 
        y = "Percent Fully Vaccinated, scaled)",
        fill = "Vaccination Signal", 
        color = "Vaccination Signal") +
-  scale_fill_manual(values=my_palette[1:3]) +
-  scale_color_manual(values=my_palette[1:3]) 
-
-ggsave(filename = here('figs/plot-vacc-h2.png'), pred4, width = 5, height = 3)
-
-knitr::include_graphics(here('figs/plot-vacc-h2.png'))
+  scale_fill_manual(values=my_palette[c(2,5,8)]) +
+  scale_color_manual(values=my_palette[c(2,5,8)]) 
 ```
-2. Hypothesis 2 increase vaccine uptake by alters will have a positive effect on vaccine uptake for the ego-county
 
-see a lot vaccinated, get vaccinated. see few vaccinated, don't vaccinate.
-See Figure \@ref(fig:plot-vacc-h2).
-
-```{r plot-vacc-h3, dependson=c('plot_options','vacc_models'), cache = TRUE, fig.cap='Predicted Values of Vaccination Rate', out.width="80%",fig.align="center"}
+```{r plot-vacc-h3, dependson=c('plot_options','vacc_models'), cache = TRUE, fig.cap='Predicted Values of Vaccination Rate'}
 pred5 <- ggpredict(vacc_h3, c("vacc_signal", "vacc_assor")) %>% as_tibble()
-pred5<-pred5 %>% 
+
+pred5 %>% 
   mutate(group = case_when(group == 1 ~ "Discordance",
                            group == 0 ~ "Average",
                            group == -1 ~ "Concordance"),
@@ -1199,76 +1236,13 @@ pred5<-pred5 %>%
 ggplot(aes(x = x, y = predicted, color = group, fill = group)) + 
   geom_ribbon(aes(ymin = conf.low,ymax = conf.high),alpha = 0.5,color = NA) + 
   geom_line() + 
-  labs(subtitle='Interaction of Vaccination Signal by Vaccination Discordance',
-                                   x = "Vaccination Signal",
-                                   y = "Vaccination Rate (in Percent)",
-                                   fill = "Vaccination\nDiscordance",
-                                   color = "Vaccination\nDiscordance") +
-  scale_fill_manual(values=my_palette[1:3]) +
-  scale_color_manual(values=my_palette[1:3]) 
+  labs(title='Interaction of Vaccination Signal by Vaccination Discordance',
+       x = "Vaccination Signal",
+       y = "Vaccination Rate (in Percent)",
+       fill = "Vaccination\nDiscordance",
+       color = "Vaccination\nDiscordance") +
+  scale_fill_manual(values=my_palette[c(2,5,8)]) +
+  scale_color_manual(values=my_palette[c(2,5,8)]) 
 
-ggsave(filename = here('figs/plot-vacc-h3.png'), pred5, width = 5, height = 3)
-
-knitr::include_graphics(here('figs/plot-vacc-h3.png'))
 ```
-
-3. Hypothesis 3 the effect of signal direction vaccine uptake will be moderated by diversity in signals (Discordance)
-
-see consistent high signals, most likely to get vaccinated, see inconsistent signals but still high, less likely but still decently likely to raise vaccination rates. 
-See Figure \@ref(fig:plot-vacc-h3).
-
-
-# Conclusion
-There are a few clear limitations to this study. This is sensitive to
-aggregation error and sampling error from who the mobility and social
-connectedness data is coming from. The aggregation errors are potentially linked
-to the assumption that the average mobility behavior of a county is a good
-representation of the diversity in movement behaviors within that county.
-However, aggregating the network data provides a unique network perspective that
-hasn't, to my knowledge, been explored. Sociological research has long debated
-about the agency of individuals and the social and institutional structure in
-which individuals are immersed. In this study, I aggregate beyond the individual
-case to explore overall patterns of movement which summarizes individual agency
-of movement together.
-
-Another limitation of this study is possible sampling error. This project draws
-on two big-data sources [@facebook20; @google2020]. While Facebook and Google
-do extract data from a large portion of the population, I must be mindful of the
-sampling issues involved in both data sets. The Facebook data is potentially
-biased by both a skew of who allows location permissions but also who has a
-Facebook account and has added their friends. While I have not found any
-research comparing the demographics of Facebook users to actual population (JK CHECK OUT [@bailey_etal18; @jones_etal13]), it
-is easy to theorize how it may over or underrepresent different subsets of the
-population in different areas [@salganikBitBitSocial2017 Section 2.3.6]. The friendship
-indicator should also be read critically, because some individuals add everyone
-they know as a friend, others add only close personal friends, and another
-subset of the population adds many people who they do not know offline
-[@courtoisSocialNetworkProfiles2012]. To my knowledge, there has been little research testing
-whether these friendships represent offline connections [@golder2007rhythms;
-@dunbar2016online]. In my case, however, the question of an online connection
-versus and offline connection is unimportant because the movement contagion
-could spread through online communication, offline communication, or simply
-shared news stories and informal knowledge networks [@kittsRethinkingSocialNetworks2020].
-
-The Google data must also be read critically because it is based on the
-geo-behavioral data collected through Google Maps from users who have turned on
-the Location History setting, which is off by default. This means our sample is
-skewed to people in the United States a) with a mobile phone, b) with a Google
-account, and c) with knowledge of how to synchronize their location history.
-These requirements likely mean that there mobility data is skewed to a younger,
-more affluent audience. Google has not made it clear whether their demographic
-biases in their location history data are weighted in some way to rebalance the
-data set so that it is representative
-[@wangForecastingElectionsNonrepresentative2015; @salganikBitBitSocial2017,
-Section 2.3.6]. It is therefore possible that the sampling bias may confound my
-results if the age distribution through a population is associated with mobility
-during COVID-19. Furthermore, Google has defined time spent in residential areas
-without much context or explanation for how they classify a residential area. In
-counties with a lot of vertical mobility (i.e. skyscrapers) where a residential
-area may overlap with a shopping mall, there is a much larger margin of error.
-
-\newpage
-# References {-}
-
-<div id="refs"></div>
-
+		
