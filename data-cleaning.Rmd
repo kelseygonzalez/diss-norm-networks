@@ -224,6 +224,7 @@ dma <- dma %>%
 
 # fox news
 fox_news_2020 <- read_csv(here("data","trends","fox_dma_2020.csv")) %>%
+  mutate(date = lubridate::mdy(date)) %>% 
   full_join(dma, by = "DMA_google") %>%
   select(fox_news, date, FIPS)
 
