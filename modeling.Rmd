@@ -42,7 +42,7 @@ knitr::opts_chunk$set(echo = FALSE,
 
 # knitr::opts_knit$get("rmarkdown.pandoc.to")
 
-pacman::p_load(tidyverse, here, lme4, equatiomatic, 
+pacman::p_load(tidyverse, here, nlme, 
                sjPlot, ggeffects, patchwork, ggridges,
                glue, modelsummary, showtext, thematic, broom.mixed,
                kableExtra, scales)
@@ -58,44 +58,39 @@ my_palette = c('#56b4e9','#999999','#E69F00','#009E73','#CC79A7','#0072B2','#D55
 my_palette  <- c(MetBrewer::met.brewer(name = 'Cross', type = 'discrete'), '#555F61')
 
 ## Automatically use showtext to render text
-font_add_google("Open Sans", "open_sans")
+font_add_google("Lora", "lora")
 showtext_auto()
 
 theme_diss <- function(base_size = 14) {
   theme_minimal(base_size = base_size) %+replace%
     theme(
       # Figure assembly
-      plot.title = element_text(family="open_sans",
+      plot.title = element_text(family="lora",
                                 size = rel(1), 
-                                face = "bold",
                                 margin = margin(0,0,5,0), 
                                 hjust = 0),
       plot.title.position = "plot",
-      plot.subtitle = element_text(family="open_sans",
+      plot.subtitle = element_text(family="lora",
                                    size = rel(0.85)),
-      plot.caption = element_text(family="open_sans",
+      plot.caption = element_text(family="lora",
                                   size = rel(0.70),
                                   hjust = 1),
       # Graphical Zones
       panel.grid.minor = element_blank(),
       panel.border = element_blank(),
       # Axes
-      axis.title = element_text(family="open_sans", 
-                                size = rel(0.85),
-                                face = "bold"),
-      axis.text = element_text(family="open_sans", 
-                               size = rel(0.70), 
-                               face = "bold"),
+      axis.title = element_text(family="lora", 
+                                size = rel(0.85)),
+      axis.text = element_text(family="lora", 
+                               size = rel(0.70)),
       axis.line = element_line(color = "black", 
                                arrow = arrow(length = unit(0.3, "lines"), 
                                              type = "closed")),
       # Legend
-      legend.title = element_text(family="open_sans",
-                                  size = rel(0.85), 
-                                  face = "bold"),
-      legend.text = element_text(family="open_sans", 
-                                 size = rel(0.70), 
-                                 face = "bold"),
+      legend.title = element_text(family="lora",
+                                  size = rel(0.85)),
+      legend.text = element_text(family="lora", 
+                                 size = rel(0.70)),
       legend.key = element_rect(fill = "transparent", 
                                 colour = NA),
       legend.key.size = unit(1.5, "lines"),
@@ -104,15 +99,14 @@ theme_diss <- function(base_size = 14) {
       # Facetting 
       strip.background = element_rect(fill = "#17252D",
                                       color = "#17252D"),
-      strip.text = element_text(family="open_sans",
+      strip.text = element_text(family="lora",
                                 size = rel(0.85), 
-                                face = "bold", 
                                 color = "white", 
                                 margin = margin(5,0,5,0))
     )
 }
 
-theme_set(theme_diss()) # change theme_ben() with the wanted theme
+theme_set(theme_diss()) 
 
 ```
 
@@ -437,7 +431,7 @@ datasummary(formula = (`Percent White` = p_white)  +
             title = 'Descriptive Statistics for Stay-at-Home Models (county-level)',
             notes =c(glue("Notes: {format(length(counties), nsmall=1, big.mark=',')} counties, {format( min(google_dates), '%B %d')} through {format(max(google_dates), '%B %d')}, 2020."),
                      "Raw values presented in table. Values in models are normalized."))%>%
-  kable_styling(latex_options = c( "hold_position", "condensed", "striped", "repeat_header"))
+  kable_styling(latex_options = c( "hold_position", "condensed"))
 
 ```
 ```{r plot-google}
@@ -533,7 +527,7 @@ datasummary(formula = (`Percent White` = p_white)  +
             data = vacc_raw,
             title = 'Descriptive Statistics for Vaccination Models (county-level)',
             notes = c(glue("Notes: {format(length(counties), nsmall=1, big.mark=',')} counties, {format( min(vacc_dates), '%B %d')} through {format(max(vacc_dates), '%B %d')}, 2021."),"Raw values presented in table. Values in Models are normalized.")) %>%
-  kable_styling(latex_options = c("hold_position", "condensed", "striped"))
+  kable_styling(latex_options = c("hold_position", "condensed"))
 ```
 ```{r plot-vacc}
 #| cache = TRUE ,
@@ -834,48 +828,53 @@ google <- google %>%
               summarize(SAH_fips_mean = mean(SAH, na.rm = TRUE)),
             by = "FIPS")
 
-google_h1 <- lmer(SAH ~ p_white + p_college + perc_65_over + 
+google_h1 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over + 
                   income_med + unemployed_rate +
                   trump_votes_2016 + evangelical_county + 
                  fox_news + social_dist_trend + covid_conspiracy +
                   SAH_fips_mean + 
-                  case_rate +
-                  week_num +
-                  (1 | FIPS) ,
-                data = google,
-                REML = FALSE,
-                control = lmerControl(optimizer ="Nelder_Mead"))
+                  case_rate + week_num,
+             random = ~ 1 | FIPS,
+             data = google,
+             correlation = corAR1(),
+             control = lmeControl(opt = "optim"))
+
+
 # write_rds(google_h1, here("modeling_cache/google_h1.rds"))
 # google_h1 <- read_rds("modeling_cache/google_h1.rds")
 
-google_h2 <- lmer(SAH ~ p_white + p_college + perc_65_over + 
+google_h2 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over + 
                   income_med + unemployed_rate +
                   trump_votes_2016 + evangelical_county + 
                  fox_news + social_dist_trend + covid_conspiracy +
                   SAH_fips_mean + 
                   case_rate +
-                  movement_signal*week_num +
-                  (1 + movement_signal| FIPS) ,
-                data = google,
-                REML = FALSE,
-                control = lmerControl(optimizer ="Nelder_Mead"))
+                  movement_signal*week_num,
+             random = ~ (1 + movement_signal) | FIPS,
+             data = google,
+             correlation = corAR1(),
+             control = lmeControl(opt = "optim"))
 # write_rds(google_h2, here("modeling_cache/google_h2.rds"))
 # google_h2 <- read_rds("modeling_cache/google_h2.rds")
 
-google_h3 <- lmer(SAH ~ p_white + p_college + perc_65_over + 
+
+google_h3 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over + 
                   income_med + unemployed_rate +
                   trump_votes_2016 + evangelical_county + 
                  fox_news + social_dist_trend + covid_conspiracy +
                   SAH_fips_mean + 
                   case_rate +
                   movement_signal*week_num +
-                  movement_signal*movement_assor + 
-                  (1 + movement_signal| FIPS) ,
-                data = google,
-                REML = FALSE,
-                control = lmerControl(optimizer ="Nelder_Mead"))
+                  movement_signal*movement_assor,
+             random = ~ (1 + movement_signal) | FIPS,
+             data = google,
+             correlation = corAR1(),
+             control = lmeControl(opt = "optim"))
 # write_rds(google_h3, here("modeling_cache/google_h3.rds"))
 # google_h3 <- read_rds("modeling_cache/google_h3.rds")
+
+
+
 ```
 ```{r vacc_models}
 #| dependson='load_vacc',
@@ -903,48 +902,44 @@ vacc <- vacc %>%
               summarize(vacc_fips_mean = mean(vacc_rate, na.rm = TRUE)),
             by = "FIPS")
 
-vacc_h1 <- lmer(vacc_rate ~ p_white + p_college + perc_65_over + 
+vacc_h1 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over + 
                   income_med + unemployed_rate +
-                  trump_votes_2020 + evangelical_county + 
-                  fox_news + covid_19_vaccine  + covid_conspiracy +
-                  vacc_fips_mean + 
-                  case_rate + week_num +
-                  (1 | FIPS) ,
-                data = vacc,
-                REML = FALSE,
-                control = lmerControl(optimizer ="Nelder_Mead"))
+                trump_votes_2020 + evangelical_county +
+                fox_news + covid_19_vaccine  + covid_conspiracy + vacc_fips_mean + 
+                case_rate + week_num,
+             random = ~ 1 | FIPS,
+             data = vacc,
+             correlation = corAR1(),
+             control = lmeControl(opt = "optim"))
 # write_rds(vacc_h1, here("modeling_cache/vacc_h1.rds"))
 # vacc_h1 <- read_rds("modeling_cache/vacc_h1.rds")
 
 
-vacc_h2 <- lmer(vacc_rate ~ p_white + p_college + perc_65_over + 
+vacc_h2 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over + 
                   income_med + unemployed_rate +
-                  trump_votes_2020 + evangelical_county + 
-                  fox_news + covid_19_vaccine  + covid_conspiracy +
-                  vacc_fips_mean + 
-                  case_rate +
-                  vacc_signal*week_num +
-                  (1 + vacc_signal| FIPS) ,
-                data = vacc,
-                REML = FALSE,
-                control = lmerControl(optimizer ="Nelder_Mead"))
+                trump_votes_2020 + evangelical_county +
+                fox_news + covid_19_vaccine  + covid_conspiracy + vacc_fips_mean + 
+                case_rate + vacc_signal*week_num,
+             random = ~ (1 + vacc_signal) | FIPS,
+             data = vacc,
+             correlation = corAR1(),
+             control = lmeControl(opt = "optim"))
 # write_rds(vacc_h2, here("modeling_cache/vacc_h2.rds"))
 # vacc_h2 <- read_rds("modeling_cache/vacc_h2.rds")
 
 
-vacc_h3 <- lmer(vacc_rate ~ p_white + p_college + perc_65_over + 
+vacc_h3 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over + 
                   income_med + unemployed_rate +
-                  trump_votes_2020 + evangelical_county + 
-                  fox_news + covid_19_vaccine  + covid_conspiracy +
-                  vacc_fips_mean + 
-                  case_rate +
-                  vacc_signal*week_num +
-                  vacc_signal*vacc_assor + 
-                  (1 + vacc_signal| FIPS) ,
-                data = vacc,
-                REML = FALSE,
-                control = lmerControl(optimizer ="Nelder_Mead"))
+                trump_votes_2020 + evangelical_county +
+                fox_news + covid_19_vaccine  + covid_conspiracy + vacc_fips_mean + 
+                case_rate + vacc_signal*week_num + vacc_signal*vacc_assor,
+             random = ~ (1 + vacc_signal) | FIPS,
+             data = vacc,
+             correlation = corAR1(),
+             control = lmeControl(opt = "optim"))
 # vacc_h3 <- read_rds("modeling_cache/vacc_h3.rds")
+
+
 
 ```
 
@@ -953,8 +948,8 @@ My analytic strategy proceeds in four steps. In Tables
 (Vaccination Uptake), I present descriptive statistics for all study variables,
 including variable ranges, means, and standard deviations across the two cases.
 Then, in Tables \@ref(tab:google-tab) (Stay-at-Home) and \@ref(tab:vacc-tab)
-(Vaccination Uptake), I fit series of three linear mixed effects regression
-models using maximum likelihood with the lme4 package in R [@Bateslme4] for our
+(Vaccination Uptake), I fit a series of three linear mixed effects regression
+models using the nlme package in R [@pinheiro_etal21; @pinheiro_bates00] for our
 two cases, Stay-at-Home rates and Vaccination rates. Linear mixed effects models
 are a form of hierarchical linear models that contain both random and fixed
 effects. These models treat the dependent variables as continuous. Models 1
@@ -967,9 +962,11 @@ the dependent variable, allowing both time-varying and county-level variables to
 predict the outcome. All variables have fixed effects, meaning that the
 county-level exogenous effects are controlled for when estimating the
 coefficient. In addition, models are specified with a random intercept per
-county. The lmer models are are optimized using Nelder–Mead, quasi-Newton and
-conjugate-gradient algorithms for box-constrained optimization 
-(`control = lmeControl(opt = "Nelder_Mead")`). This first model will address
+county. The lme models are set with a autoregressive correlation structure
+(`correlation = corAR1()`) to control for temporally autocorrelated error
+structures; models are also optimized using Nelder–Mead, quasi-Newton and
+conjugate-gradient algorithms for box-constrained optimization and simulated
+annealing (`control = lmeControl(opt = "optim")`). This first model will address
 Hypothesis 1. To test hypothesis 2, I estimate model 2 which builds on model 1
 by first introducing the movement of vaccination signal. Because the signal
 varies by week, I estimate this model with an interaction between week and
@@ -1013,13 +1010,13 @@ modelsummary(list(google_h1, google_h2, google_h3),
              notes= c('* p < .05. ** p < .01. *** p < .001 (two-tailed test).',
                       'Model 1 includes a random intercept for FIPS,',
                       'Models 2-3 include a random effect for Movement Signal by FIPS',
-                      glue('N = {scales::label_comma()(nobs(google_h1))}, N of random Effects = {as.numeric(sapply(ranef(google_h1),nrow))}')),
-             # estimate = "{estimate}{stars}", 
+                      glue('N = {scales::label_comma()(nobs(google_h1))}, N of random Effects = {google_h3$dims$ngrps[["FIPS"]]}')),
+             estimate = "{estimate}{stars}",
              coef_map = google_labels,
              gof_omit = 'AIC|BIC|ICC|RMSE'
              ) %>%
-  kable_styling(latex_options = c("HOLD_position", "striped"),
-                font_size = 7)
+  kable_styling(latex_options = c("hold_position", 'condensed'),
+                font_size = 8)
 
 
 ```
@@ -1040,7 +1037,7 @@ perceived threat of the virus, measured through Covid-19 case rates, were not
 significantly related to stay-at-home rates in model 1. In other words, for
 every 1 standard deviation increase in Covid-19 case rates, stay-at-home rates
 actually decreased by
-`r broom.mixed::tidy(google_h1) %>% filter(term == 'case_rate') %>% pull(estimate) %>% round(4)` (_p_ = ), 
+`r broom.mixed::tidy(google_h1) %>% filter(term == 'case_rate') %>% pull(estimate) %>% round(4)` (_p_ = `r broom.mixed::tidy(google_h1) %>% filter(term == 'case_rate') %>% pull(p.value) %>% round(3)`), 
 a very small and insignificant effect. This model's phi paramter is 0.933,
 which is a good indicator that adjacent time points for each county are related
 and the model is specified correctly [@finch_etal14].
@@ -1054,7 +1051,7 @@ Signal](#network-signal) for specifications). For every one standard deviation
 increase in the average time spent in residence of the structurally (word this
 better) closest counties, an ego tends to also increase its' own stay-at-home
 rate by `r broom.mixed::tidy(google_h2) %>% filter(term == 'movement_signal') %>% pull(estimate) %>% round(3)`
-(_p_ < ). However, this coefficient is inadequate alone
+(_p_ <  0.001). However, this coefficient is inadequate alone
 because the effect varies over time; the interaction between week and movement
 signal is negative, meaning that week partially moderates the effect of the
 signal. Figure \@ref(fig:plot-google-h2) illustrates this interaction. In the
@@ -1104,7 +1101,7 @@ effect has been completed mediated by the inclusion of signal discordance.
 Importantly, signal discordance has a negative effect on stay-at-home rates,
 where every one standard deviation increase in discordance lowers rates by
 `r broom.mixed::tidy(google_h3) %>% filter(term == 'movement_assor') %>% pull(estimate) %>% round(3)` 
-(_p_ < ). The interaction between signal and signal discordance have a
+(_p_ <  0.001). The interaction between signal and signal discordance have a
 coefficient of a similar magnitude, with every one standard deviation increase
 in discordance and signal resulting in
 `r broom.mixed::tidy(google_h3) %>% filter(term == 'movement_signal:movement_assor') %>% pull(estimate) %>% round(3)` 
@@ -1173,12 +1170,12 @@ modelsummary(list(vacc_h1, vacc_h2, vacc_h3),
              notes= c('* p < .05. ** p < .01. *** p < .001 (two-tailed test).',
                       'Model 1 includes a random intercept for FIPS,',
                       'Models 2-3 include a random effect for Movement Signal by FIPS',
-                      glue('N = {scales::label_comma()(nobs(vacc_h1))}, N of random Effects = {as.numeric(sapply(ranef(vacc_h3),nrow))}')),
-             # estimate = "{estimate}{stars}", 
+                      glue('N = {scales::label_comma()(nobs(vacc_h1))}, N of random Effects = {vacc_h3$dims$ngrps[["FIPS"]]}')),
+             estimate = "{estimate}{stars}",
              coef_map = vacc_labels,
              gof_omit = 'AIC|BIC|ICC|RMSE')%>%
-  kable_styling(latex_options = c("HOLD_position", "striped"),
-                font_size = 7)
+  kable_styling(latex_options = c("hold_position", 'condensed'),
+                font_size = 8)
 
 ```
 
@@ -1252,6 +1249,7 @@ ggplot(aes(x = x, y = predicted, color = group, fill = group)) +
   scale_color_manual(values=my_palette[c(2,5,8)]) 
 ```
 
+TODO INTERPRET NOW THAT INTERACTION WORKS
 Model 3 then models the moderation of signal direction for vaccine uptake by
 diversity in signals (Discordance), Hypothesis 3.
 
@@ -1293,53 +1291,66 @@ ggplot(aes(x = x, y = predicted, color = group, fill = group)) +
 
 
 # Conclusion
-<!-- There are a few clear limitations to this study. This is sensitive to -->
-<!-- aggregation error and sampling error from who the mobility and social -->
-<!-- connectedness data is coming from. The aggregation errors are potentially linked -->
-<!-- to the assumption that the average mobility behavior of a county is a good -->
-<!-- representation of the diversity in movement behaviors within that county. -->
-<!-- However, aggregating the network data provides a unique network perspective that -->
-<!-- hasn't, to my knowledge, been explored. Sociological research has long debated -->
-<!-- about the agency of individuals and the social and institutional structure in -->
-<!-- which individuals are immersed. In this study, I aggregate beyond the individual -->
-<!-- case to explore overall patterns of movement which summarizes individual agency -->
-<!-- of movement together. -->
 
-<!-- Another limitation of this study is possible sampling error. This project draws -->
-<!-- on two big-data sources [@facebook20; @google2020]. While Facebook and Google -->
-<!-- do extract data from a large portion of the population, I must be mindful of the -->
-<!-- sampling issues involved in both data sets. The Facebook data is potentially -->
-<!-- biased by both a skew of who allows location permissions but also who has a -->
-<!-- Facebook account and has added their friends. While I have not found any -->
-<!-- research comparing the demographics of Facebook users to actual population (JK CHECK OUT [@bailey_etal18; @jones_etal13]), it -->
-<!-- is easy to theorize how it may over or underrepresent different subsets of the -->
-<!-- population in different areas [@salganikBitBitSocial2017 Section 2.3.6]. The friendship -->
-<!-- indicator should also be read critically, because some individuals add everyone -->
-<!-- they know as a friend, others add only close personal friends, and another -->
-<!-- subset of the population adds many people who they do not know offline -->
-<!-- [@courtoisSocialNetworkProfiles2012]. To my knowledge, there has been little research testing -->
-<!-- whether these friendships represent offline connections [@golder2007rhythms; -->
-<!-- @dunbar2016online]. In my case, however, the question of an online connection -->
-<!-- versus and offline connection is unimportant because the movement contagion -->
-<!-- could spread through online communication, offline communication, or simply -->
-<!-- shared news stories and informal knowledge networks [@kittsRethinkingSocialNetworks2020]. -->
+this is so critical, rewrite to be less critical
 
-<!-- The Google data must also be read critically because it is based on the -->
-<!-- geo-behavioral data collected through Google Maps from users who have turned on -->
-<!-- the Location History setting, which is off by default. This means our sample is -->
-<!-- skewed to people in the United States a) with a mobile phone, b) with a Google -->
-<!-- account, and c) with knowledge of how to synchronize their location history. -->
-<!-- These requirements likely mean that there mobility data is skewed to a younger, -->
-<!-- more affluent audience. Google has not made it clear whether their demographic -->
-<!-- biases in their location history data are weighted in some way to rebalance the -->
-<!-- data set so that it is representative -->
-<!-- [@wangForecastingElectionsNonrepresentative2015; @salganikBitBitSocial2017, -->
-<!-- Section 2.3.6]. It is therefore possible that the sampling bias may confound my -->
-<!-- results if the age distribution through a population is associated with mobility -->
-<!-- during COVID-19. Furthermore, Google has defined time spent in residential areas -->
-<!-- without much context or explanation for how they classify a residential area. In -->
-<!-- counties with a lot of vertical mobility (i.e. skyscrapers) where a residential -->
-<!-- area may overlap with a shopping mall, there is a much larger margin of error. -->
+
+purpose of paper  
+
+main finding  
+
+limitations  
+
+regardless of limitations, this is a contribution to x y z
+
+There are a few clear limitations to this study. This is sensitive to
+aggregation error and sampling error from who the mobility and social
+connectedness data is coming from. The aggregation errors are potentially linked
+to the assumption that the average mobility behavior of a county is a good
+representation of the diversity in movement behaviors within that county.
+However, aggregating the network data provides a unique network perspective that
+hasn't, to my knowledge, been explored. Sociological research has long debated
+about the agency of individuals and the social and institutional structure in
+which individuals are immersed. In this study, I aggregate beyond the individual
+case to explore overall patterns of movement which summarizes individual agency
+of movement together.
+
+Another limitation of this study is possible sampling error. This project draws
+on two big-data sources [@facebook20; @google2020]. While Facebook and Google
+do extract data from a large portion of the population, I must be mindful of the
+sampling issues involved in both data sets. The Facebook data is potentially
+biased by both a skew of who allows location permissions but also who has a
+Facebook account and has added their friends. While I have not found any
+research comparing the demographics of Facebook users to actual population
+(JK CHECK OUT [@bailey_etal18; @jones_etal13]), it
+is easy to theorize how it may over or underrepresent different subsets of the
+population in different areas [@salganikBitBitSocial2017 Section 2.3.6]. The friendship
+indicator should also be read critically, because some individuals add everyone
+they know as a friend, others add only close personal friends, and another
+subset of the population adds many people who they do not know offline
+[@courtoisSocialNetworkProfiles2012]. To my knowledge, there has been little research testing
+whether these friendships represent offline connections [@golder2007rhythms;
+@dunbar2016online]. In my case, however, the question of an online connection
+versus and offline connection is unimportant because the movement contagion
+could spread through online communication, offline communication, or simply
+shared news stories and informal knowledge networks [@kittsRethinkingSocialNetworks2020].
+
+The Google data must also be read critically because it is based on the
+geo-behavioral data collected through Google Maps from users who have turned on
+the Location History setting, which is off by default. This means our sample is
+skewed to people in the United States a) with a mobile phone, b) with a Google
+account, and c) with knowledge of how to synchronize their location history.
+These requirements likely mean that there mobility data is skewed to a younger,
+more affluent audience. Google has not made it clear whether their demographic
+biases in their location history data are weighted in some way to rebalance the
+data set so that it is representative
+[@wangForecastingElectionsNonrepresentative2015; @salganikBitBitSocial2017,
+Section 2.3.6]. It is therefore possible that the sampling bias may confound my
+results if the age distribution through a population is associated with mobility
+during COVID-19. Furthermore, Google has defined time spent in residential areas
+without much context or explanation for how they classify a residential area. In
+counties with a lot of vertical mobility (i.e. skyscrapers) where a residential
+area may overlap with a shopping mall, there is a much larger margin of error.
 
 
 
