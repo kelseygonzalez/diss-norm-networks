@@ -32,7 +32,7 @@ knitr::opts_chunk$set(echo = FALSE,
                       message = FALSE,
                       warning = FALSE,
                       cache = TRUE,
-                      fig.width = 7,
+                      fig.width = 6,
                       fig.asp = 0.8,
                       out.width = "80%",
                       fig.align="center"
@@ -45,7 +45,7 @@ knitr::opts_chunk$set(echo = FALSE,
 pacman::p_load(tidyverse, here, nlme, 
                sjPlot, ggeffects, patchwork, ggridges,
                glue, modelsummary, showtext, thematic, broom.mixed,
-               kableExtra, scales)
+               kableExtra, scales, tikzDevice)
 
 count_to_state <- read_csv("https://raw.githubusercontent.com/kjhealy/fips-codes/master/county_fips_master.csv") %>% 
   mutate(FIPS = str_pad(fips, 5, pad = "0")) %>% 
@@ -177,8 +177,12 @@ to cite:
 
 - [@wimmerDomainsDiffusionHow2021]
 - vaccine misinformation [@mottaRepublicansNotDemocrats2021; @mottaIdentifyingPrevalenceCorrelates2021]
+
 - Association Between What People Learned About COVID-19 Using Web Searches and Their Behavior Toward Public Health Guidelines: Empirical Infodemiology Study [@akpanAssociationWhatPeople2021]
+
 - Politicization of Science in the Public Sphere: A Study of Public Trust in the United States, 1974 to 2010 [@gauchatPoliticizationSciencePublic2012]
+
+- cite @gibbons_etal21 ; social capital can encourage and discourage distancing
 
 A second strategy pushed by the CDC, once available, was to receive vaccination
 to prevent the effects of the Covid-19 virus if infected. Vaccinations like
@@ -192,11 +196,12 @@ throughout 2020 and 2021, policy makers often struggle to promote public
 adoption of policies that rely on the publics' willingness to adjust their
 current 'risky' behaviors to less-risk behaviors based on scientific facts. The
 lack of adaption to newly recommended behaviors is partially due to the
-variation in how individuals understand the threats of the disease
-[@bailey_etal20], but it is also due to the current norms that are already in
-place and that form in response to the policy. 
-<!-- TODO: discuss norms, how it's hard to diverge from current norms, habitus  -->
-
+variation in how individuals came to understand the threats of the disease
+[@bailey_etal20], but also due to habitus: the ingrained habits, skills and dispositions
+of individuals and groups [@bourdieu77]. Habitus shapes how individuals perceive
+different social interactions and norms and shape how they adopt different
+policies, leading to different social outcomes and a divergence of attitudes 
+[@scottarthur_etal21; @williams95; @madeira_etal18].
 
 There is little research on shelter-in-place or stay-at-home rates, especially
 during pandemics or disasters. Though research on the causes of population
@@ -225,12 +230,6 @@ the spread of mobility behavior and their respective hypotheses.
 
 ### The Social Contagion Model
 
-```{r norm-framework}
-#| fig.cap='Preliminary model of norm formation'
-
-knitr::include_graphics(here('figs/model.png'))
-```
-<!-- TODO integrate or get rid of norm framework -->
 
 Individuals engage with each other and their distributive ties to create
 community contexts where norms, beliefs, and values circulate. These clusters of
@@ -267,18 +266,21 @@ behavior. Like Axelrod [-@axelrodDisseminationCultureModel1997] this outlines
 how the of local convergence of close network actors becomes amplified and can
 lead to global polarization between groups.
 
-- Write a sentence about [@bailey_etal20] 'We  show  that  social  network  exposure  to  COVID-19  cases  shapes  individuals’  beliefs  and  behaviors concerning the coronavirus.'
-
 Outdated models found in early public health research claim that information
 about the risks of behaviors will lead to changes in behaviors to mitigate those
-said risks <!-- (TODO CITE) -->. However, while this model can be valid in specific
+said risks [e.g. @flay_etal80]. However, while this model can be valid in specific
 cases, more research has shown how the risks themselves do little to motivate
-behavioral change <!-- (TODO CITE) -->.
+behavioral change [@witte_allen00; @wolburg06]. Often, an appeal to fear is
+found to be a major driver of the adoption of information campaigns and some
+research has show that 'social  network  exposure  to  COVID-19  cases  shapes
+individuals’  beliefs  and  behaviors concerning the coronavirus.'
+[@bailey_etal20]. Because of this, it is logical that higher local incidences of
+infection would inspire fear and increase adherence to public health measures
+according to this older model.
 
 (@) _Hypothesis 1_ Relatively higher local rates of infection will lead to increased time spent in residence and increase vaccination uptake
 
 
-cite @gibbons_etal21
 
 ### Complex Contagion and Discordance: 
 @centolaComplexContagionsWeakness2007 theorize that simple contagions are not
@@ -293,7 +295,7 @@ contagion, this means that the behavior must be reinforced through witnessing
 multiple alters perform this behavior before contagion can take effect.
   
   
-<!-- (TODO CITE)  [@houghtonSocialContagionInteracting2021] in here somewhere -->
+
 
 In the case of stay-at-home rates or vaccination rates, this theoretically means
 that a person exposed to many sources of the same signal (high, medium, low
@@ -320,11 +322,17 @@ discordance enables complex contagion. Instead of adopting a 'majority' rules
 attitude, this means that the more Discordance perceived by an ego, the less
 likely the alters will have any effect on the ego. I theorize that the behavior
 of a county-alter will be positively correlated with the behavior of another
-county-ego if the county-ego receives highly discordant signals.
+county-ego if the county-ego receives highly discordant signals, as seen in figure
+\@ref(fig:dag).
 
 (@)  _Hypothesis 3_ the effect of signal direction on time spent in residence and vaccine uptake will be moderated by diversity in signals (discordance)
 
+```{r dag}
+#| fig.cap='Elaboratory Theoretical Model of Health Behavior Norms',
+#| fig.width = 5
 
+knitr::include_graphics(here('figs/dag.png'))
+```
 
 ### Associative Diffusion
 
@@ -337,13 +345,25 @@ compatible with one another, what they call “associative diffusion.” This
 argument that culture does not spread like a virus but instead is dependent on
 how belief structures are connected to each other is important to test because
 norms around health behaviors became politicized issues during the Covid-19
-pandemic. This means that the population mobility
-behavior itself was not contagious, but the cognitive association of social
-distancing or vaccination uptake meant were spreading between populations of
-individuals. While this cognitive theory of cultural variation is difficult to
-test, the theory it supplies provides a solid framework for how behavioral norms
-formed during the pandemic.
+pandemic. This means that the stay-at-home or vaccination behavior themselves
+were not contagious, but the cognitive association of precisely what social
+distancing or vaccination uptake _meant_ were spreading between populations of
+individuals. Moreover, as @houghton20 outlines, diffusants - the things that are
+diffusing through a population, are not independent of each other. When we take
+into account the interdependence between different beliefs that are diffusing,
+such as Covid-19 is a hoax, social distancing saves lives, the Covid-19 includes
+a microchip to control your thoughts, and lockdown is against the rights
+guaranteed in the US constitution, we can imagine how these various diffusants
+become associated together into structures of belief through schemas of
+perception [@houghton20]. While this cognitive theory of cultural variation is
+difficult to test, the theory it supplies provides a solid framework for how
+behavioral norms formed during the pandemic.
+ 
+```{r norm-framework}
+#| fig.cap='Preliminary model of norm formation'
 
+knitr::include_graphics(here('figs/model.png'))
+```
 
 The figure above illustrates how I interpret associative diffusion will impact
 population movement and vaccination rates in times of unsettled norms. An
@@ -375,13 +395,8 @@ Furthermore, as COVID-19 has become a politically polarizing issue, conservative
 ideology and a general mistrust of “big government” [@frank2007s] are likely to
 lead to resistance to the government and scientific guidance.
 
-<!-- TODO choose whether the dage is necessary and place it in a better spot and integrate it -->
 
-```{r dag}
-#| fig.cap='Elaboratory Theoretical Model of Health Behavior Norms'
 
-knitr::include_graphics(here('figs/dag.png'))
-```
 
 # Objectives and Significance of the Study
 
@@ -408,6 +423,7 @@ for an isolation of behavioral change during the study period.
 # Data and Methods
 This article draws on two unique longitudinal datasets that I
 compiled for this analysis from sources like Facebook, Google, CDC, etc.
+<!-- TODO Finish this section -->
 
 ## Stay at Home Rates
 ```{r google-desc-table}
@@ -659,7 +675,7 @@ count_to_state <- read_csv("https://raw.githubusercontent.com/kjhealy/fips-codes
 #| dependson=c('plot_options','load_vacc','discordance_extra_data_load'),
 #| cache = TRUE,
 #| fig.cap = 'How Signal Mean and Signal Assortativity are Measured',
-#| out.width="90%",
+#| out.width="70%",
 #| fig.asp = 1.5
 
 plot1c_data <- vacc_raw %>% 
@@ -733,23 +749,62 @@ plot1c/plot1d
 rm(list = c("plot1c_data"))
 
 ```
-```{r norm-framework}
-#| fig.cap='Visualization of how Network Signal and Discordance are Calculated (needs to be made more professional)'
+```{r discordance-network}
+#| fig.cap='Visualization of how Network Signal and Discordance are Calculated (needs to be made more professional)',
+#| out.width="50%"
 
 knitr::include_graphics(here('figs/discordance_network_ugly.PNG'))
 ```
+$$ w = \begin{bmatrix}0.0000026\\0.0000966\\0.0000523\\0.0001120\\\end{bmatrix},  
+x = \begin{bmatrix}17.4\\42.8\\24.6\\24.3\\\end{bmatrix} \longrightarrow
+\begin{matrix}
+\bar{x}, signal = 28.02007\\
+s, discordance = 7.391
+\end{matrix}
+$$
+
 
 ### Case Rate
-To estimate the concept of 'real threat of infection' in figure \@ref(fig:norm-framework), the
-models use county-level Covid-19 case rates with data from @thenewyorktimes21.
-It is widely acknowledged that there are biases in this data due to
-inconsistencies and availability in testing as well as different community
-propensity to test <!-- (TODO CITE, I asked Simone).  --> However, it is the best measure we have of
-actual case rates. County data are scaled with a rolling mean with a rolling
-window width of seven days to smooth out intra-week noise. Case Rate is measured
-as number of cases per 100,000 population. Observations vary from 0 to 1,565
-between the two datasets.
+To estimate the concept of 'real threat of infection' in figure
+\@ref(fig:norm-framework), the models use county-level Covid-19 case rates with
+data from @thenewyorktimes21. It is widely acknowledged that there are biases in
+this data due to inconsistencies and availability in testing as well as
+different community propensity to test [@gu22; cdc20a] However, it is the best
+measure we have of actual case rates. County data are scaled with a rolling mean
+with a rolling window width of seven days to smooth out intra-week noise. Case
+Rate is measured as number of cases per 100,000 population. Observations vary
+from 0 to 1,565 between the two datasets.
 
+### Online Norms
+To operationalize the search for online norms, I again use Google search trends
+over the study period across individual designated media markets areas (DMAs), a
+nonoverlapping aggregation of U.S. counties to 210 media markets based on
+similar population clusters. To investigate the rate of _searching_ for norms
+online in both cases, I use the following search topics: 'Social Distancing'
+(2020, stay-at-home case only), 'Covid-19 Vaccine' (2021 Vaccination Uptake case
+only) and Covid Conspiracy (2020-2021, both cases). Search topics are a more
+robust measurement than a single search term: topics are aggregations of the
+rates of multiple, highly correlated search terms together into a cohesive
+topic. For example, while 'Beyoncé', 'Beyonce' and 'beyonce knowles' are all
+separate search terms, 'Beyoncé Knowles' encompasses all of these into a single
+search topic. While the data is originally on a original scale of 0 to 100, with
+100 being the maximum search popularity out of all DMAs, Google Search Trend are
+now only available cross-sectionally (a single time period across a geography)
+or time-series (a single geo-location across time). To remedy this and build a
+longitudinal dataset of each search topic, I follow the method proposed in
+@park_etal, p. 5. This method involves building a dataset of unscaled
+cross-sectional values, selecting a DMA to use to establish the  rescaling ratio
+(I use 'Los Angeles CA'), and then finding the time-series values for the one
+DMA. To find the rescaling ratio for each week in the time-series, you divide
+the time-series value for each week by the cross-sectional value for each week,
+resulting in a rescaling vector to be used for all weeks in the dataset across
+geographies. To rescale each longitudinal value, multiply the respective week's
+rescaling ratio by the cross-sectional value. Rescaled longitudinal data was
+compared against time-series data for multiple test counties and was equivalent. 
+
+<!-- TODO you might also have a concrete example of how you are using
+cross-sectional weights in Los Angeles to construct county-level time series
+data. -->
 
 
 ### Pillars of Convervatism
@@ -781,32 +836,7 @@ ecological data [@bailPrestigeProximityPrejudice2019;
 @reyesUsingInternetSearch2018; @scheitleGoogleInsightsSearch2011; 
 @stephens-davidowitzCostRacialAnimus2014; @swearingenGoogleInsightsSenate2014].
 
-### Online Norms
-To operationalize the search for online norms, I again use Google search trends
-over the study period across individual designated media markets areas (DMAs), a
-nonoverlapping aggregation of U.S. counties to 210 media markets based on
-similar population clusters. To investigate the rate of _searching_ for norms
-online in both cases, I use the following search topics: 'Social Distancing'
-(2020, stay-at-home case only), 'Covid-19 Vaccine' (2021 Vaccination Uptake case
-only) and Covid Conspiracy (2020-2021, both cases). Search topics are a more
-robust measurement than a single search term: topics are aggregations of the
-rates of multiple, highly correlated search terms together into a cohesive
-topic. For example, while 'Beyoncé', 'Beyonce' and 'beyonce knowles' are all
-separate search terms, 'Beyoncé Knowles' encompasses all of these into a single
-search topic. While the data is originally on a original scale of 0 to 100, with
-100 being the maximum search popularity out of all DMAs, Google Search Trend are
-now only available cross-sectionally (a single time period across a geography)
-or time-series (a single geo-location across time). To remedy this and build a
-longitudinal dataset of each search topic, I follow the method proposed in
-@park_etal, p. 5. This method involves building a dataset of unscaled
-cross-sectional values, selecting a DMA to use to establish the  rescaling ratio
-(I use 'Los Angeles CA'), and then finding the time-series values for the one
-DMA. To find the rescaling ratio for each week in the time-series, you divide
-the time-series value for each week by the cross-sectional value for each week,
-resulting in a rescaling vector to be used for all weeks in the dataset across
-geographies. To rescale each longitudinal value, multiply the respective week's
-rescaling ratio by the cross-sectional value. Rescaled longitudinal data was
-compared against time-series data for multiple test counties and was equivalent. 
+
 
 ### Demographics
 
@@ -976,14 +1006,15 @@ structures; models are also optimized using Nelder–Mead, quasi-Newton and
 conjugate-gradient algorithms for box-constrained optimization and simulated
 annealing (`control = lmeControl(opt = "optim")`). This first model will address
 Hypothesis 1. To test hypothesis 2, I estimate model 2 which builds on model 1
-by first introducing the movement of vaccination signal. Because the signal
-varies by week, I estimate this model with an interaction between week and
-signal. Moreoever, because signal may have different effects across different
-counties, I set a random effect for both signal. A visual representation of this
-interaction can be seen in figures \@ref(fig:plot-google-h2) and
-\@ref(fig:plot-vacc-h2). Model 3 then builds on model 2, introducing a fixed
-effect for the interaction between signal and discordance; Figures \@ref(fig:plot-google-h3) and \@ref(fig:plot-vacc-h3)
-depict how signal and discordance interact.
+by first introducing vaccination signal. Because the signal varies by week, I
+estimate this model with an interaction between week and signal. And finally,
+because signal may have divergent effects across counties, I set a random effect
+for signal nested by county. A visual representation of this interaction can be
+seen in figures \@ref(fig:plot-google-h2) and \@ref(fig:plot-vacc-h2). Model 3
+further elaborates the previous model by introducing both a fixed effect for
+signal discordance and an interaction term between signal and discordance.
+Figures \@ref(fig:plot-google-h3) and \@ref(fig:plot-vacc-h3) depict just how
+signal and discordance interact across these two cases.
 
 
 
@@ -1028,7 +1059,6 @@ modelsummary(list(google_h1, google_h2, google_h3),
 
 ```
 
-<!-- finished double checking below  -->
 In Table \@ref(tab:google-tab) and Figures \@ref(fig:plot-google-h2) -
 \@ref(fig:plot-google-h3), I present the elaboratory county-level models that
 predict stay-at-home rates, or, time spent in residence. Model 1 addresses
@@ -1052,7 +1082,6 @@ a very small and insignificant effect. In this case, I fail to reject the null
 hypothesis that relatively higher local rates of infection will lead to
 increased time spent in residence.
 
-<!-- finished double checking below  -->
 Table \@ref(tab:google-tab) Model 2 investigates Hypothesis 2, that increased
 average time spent in residence (signal direction) from alters will have a
 positive effect on stay-at-home rates for the ego-county. This model builds on
@@ -1064,23 +1093,6 @@ rate by `r broom.mixed::tidy(google_h2) %>% filter(term == 'movement_signal') %>
 2, that an increased average time spent in residence (signal direction) from
 alters will have a positive effect on time spent in residence for the
 ego-county.
-
-However, this coefficient is inadequate alone because the effect varies over
-time; the interaction between week and movement signal is negative, meaning that
-week partially moderates the effect of the signal. Figure
-\@ref(fig:plot-google-h2) illustrates this interaction. In the early days of the
-Covid-19 pandemic, seeing a high rate of time spent in residence by alters led
-to a high rate of staying-at-home for county egos. However, as the pandemic
-progressed, these signals switched. In other words, towards the end of 2020,
-other factors may have come into play and if a county saw its' alters social
-distancing and spending time in residence, ego counties spent less time at home.
-Theoretically, this may be because individuals saw their adjacent communities
-with strong public health norms and felt safe and justified their own deviance.
-However, if an ego county received signals that
-others were failing to social distance, they were more likely to stay-at-home.
-In this case, the threat of the virus may have been more evident for
-individuals. 
-
 
 ```{r plot-google-h2}
 #| dependson=c('plot_options','google_models'),
@@ -1107,33 +1119,22 @@ pred2 %>%
 
 
 ```
-<!-- finished double checking below  -->
 
-Model 3 then adds the concept of Signal Discordance to investigate Hypothesis 3,
-that the effect of signal direction on stay-at-home rates will be moderated by a
-diversity in signals (_discordance_). Many of the controls remain consistent
-throughout the models, with the exception of 'Social Distancing' Trend whose
-effect has been completed mediated by the inclusion of signal discordance.
-Importantly, signal discordance has a negative effect on stay-at-home rates,
-where every one standard deviation increase in discordance lowers rates by
-`r broom.mixed::tidy(google_h3) %>% filter(term == 'movement_assor') %>% pull(estimate) %>% round(3)` 
-(_p_ <  0.001). The interaction between signal and signal discordance have a
-coefficient of a similar magnitude, with every one standard deviation increase
-in discordance and signal resulting in
-`r broom.mixed::tidy(google_h3) %>% filter(term == 'movement_signal:movement_assor') %>% pull(estimate) %>% round(3)` 
-lower rates of time spent in residence, indicating moderation. Figure
-\@ref(fig:plot-google-h3) illustrates the moderating effect that signal
-discordance has on signal. Under high discordance, the social influence effect
-is almost completely moderated because there is no clear story or norm forming.
-However, under low discordance, the signal is condensed, allowing for social
-influence to have an effect. Explicitly, if a county is receiving a wide array
-of low and high signals, their stay at home rates won't be affected. When a
-signal is concentrated or in agreement, the theoretical effect of movement
-signaling on the ego are the strongest. With this, I am able to reject the null
-hypothesis of no relationship for hypothesis 4 and find that the effect of
-signal direction on time spent in residence and vaccine uptake will be moderated
-by diversity in signals.
-
+However, this coefficient is inadequate alone because the effect varies over
+time; the interaction between week and movement signal is negative, meaning that
+week partially moderates the effect of the signal. Figure
+\@ref(fig:plot-google-h2) illustrates this interaction. In the early days of the
+Covid-19 pandemic, seeing a high rate of time spent in residence by alters led
+to a high rate of staying-at-home for county egos. However, as the pandemic
+progressed, these signals switched. In other words, towards the end of 2020,
+other factors may have come into play and if a county saw its' alters social
+distancing and spending time in residence, ego counties spent less time at home.
+Theoretically, this may be because individuals saw their adjacent communities
+with strong public health norms and felt safe and justified their own deviance.
+However, if an ego county received signals that
+others were failing to social distance, they were more likely to stay-at-home.
+In this case, the threat of the virus may have been more evident for
+individuals. 
 ```{r plot-google-h3}
 #| dependson=c('plot_options','google_models'),
 #| cache = TRUE,
@@ -1158,6 +1159,30 @@ pred3 %>%
   scale_color_manual(values=my_palette[c(2,5,8)]) 
 
 ```
+Model 3 then adds the concept of Signal Discordance to investigate Hypothesis 3,
+that the effect of signal direction on stay-at-home rates will be moderated by a
+diversity in signals (_discordance_). Many of the controls remain consistent
+throughout the models, with the exception of 'Social Distancing' Trend whose
+effect has been completed mediated by the inclusion of signal discordance.
+Importantly, signal discordance has a negative effect on stay-at-home rates,
+where every one standard deviation increase in discordance lowers rates by
+`r broom.mixed::tidy(google_h3) %>% filter(term == 'movement_assor') %>% pull(estimate) %>% round(3)` 
+(_p_ <  0.001). The interaction between signal and signal discordance have a
+coefficient of a similar magnitude, with every one standard deviation increase
+in discordance and signal resulting in
+`r broom.mixed::tidy(google_h3) %>% filter(term == 'movement_signal:movement_assor') %>% pull(estimate) %>% round(3)` 
+lower rates of time spent in residence, indicating moderation. Figure
+\@ref(fig:plot-google-h3) illustrates the moderating effect that signal
+discordance has on signal. Under high discordance, the social influence effect
+is almost completely moderated because there is no clear story or norm forming.
+However, under low discordance, the signal is condensed, allowing for social
+influence to have an effect. Explicitly, if a county is receiving a wide array
+of low and high signals, their stay at home rates won't be affected. When a
+signal is concentrated or in agreement, the theoretical effect of movement
+signaling on the ego are the strongest. With this, I am able to reject the null
+hypothesis of no relationship for hypothesis 4 and find that the effect of
+signal direction on time spent in residence and vaccine uptake will be moderated
+by diversity in signals.
 
 ## Vaccination Rate results
 ```{r vacc-tab}
@@ -1198,7 +1223,6 @@ modelsummary(list(vacc_h1, vacc_h2, vacc_h3),
 
 ```
 
-<!-- finished double checking below  -->
 In Table \@ref(tab:vacc-tab) and Figures \@ref(fig:plot-vacc-h2) -
 \@ref(fig:plot-vacc-h3), I present the elaboratory county-level models that
 predict vaccination uptake rates. The parameter phi in model 1 is .985, which is
@@ -1225,30 +1249,6 @@ and Vaccination Discordance in models 2 and 3. Distortion occurs when the
 direction of a focal relationship reverses sign once a third (distorter)
 variable is controlled, in this case, those related to signal. Therefore, the
 results of hypothesis 1 are quite inconclusive.
-
-<!-- finished double checking below  -->
-Table \@ref(tab:vacc-tab) model 2 tests the hypothesis 2 that increase vaccine
-uptake by alters will have a positive effect on vaccine uptake for the
-ego-county. The results are incredibly clear: seeing alter counties receiving
-vaccines is associated with higher vaccination rates. Specifically, a 1 standard
-deviation increase in vaccine signal, the average rate of vaccination of a
-county's alters, is associated with a 
-`r broom.mixed::tidy(vacc_h2) %>% filter(term == 'vacc_signal') %>% pull(estimate) %>% round(3)` 
-percent increase of vaccination rates for the ego county. The strength of this
-result leads me to reject the null hypothesis for hypothesis 2 and find that
-increased average time spent in residence (signal direction) from alters will
-have a positive effect on time spent in residence for the ego-county. The
-interaction of vaccine signal can be seen in Figure \@ref(fig:plot-vacc-h2).
-While the interaction is not as extreme as the results for Hypothesis 2 for
-Stay-at-Home rates, there is still a distinction between high and low
-vaccination signals over time. The slope for Higher Vaccination Signal is less
-pronounced than Low Vaccination Signal. This is likely an artifact where some
-counties vaccinated broadly early on, so their vaccination rate stays rather
-constant in later weeks. However, overall, the message is clear: ego-counties
-who 'see' high levels of vaccinations among their alters have higher vaccination
-rates; those who don't see that social norm forming are much less likely to
-vaccinate.
-
 ```{r plot-vacc-h2}
 #| dependson=c('vacc_models'),
 #| cache = TRUE,
@@ -1271,28 +1271,31 @@ ggplot(aes(x = x, y = predicted, color = group, fill = group)) +
        fill = "Vaccination Signal", 
        color = "Vaccination Signal") +
   scale_fill_manual(values=my_palette[c(2,5,8)]) +
-  scale_color_manual(values=my_palette[c(2,5,8)]) 
+  scale_color_manual(values=my_palette[c(2,5,8)]) +
+  theme_diss()
 ```
-<!-- finished double checking below  -->
-Table \@ref(tab:vacc-tab) Model 3 then models the moderation of signal direction
-for vaccine uptake by diversity in signals (_Discordance_). This is a second
-test of Hypothesis 3, that the effect of signal direction on vaccine uptake will
-be moderated by diversity in signals. The coefficients in model 3 are largely
-largely consistent with model 2 and there is very little change in the magnitude
-or significance of the coefficients. Vaccination signal maintains to have a positive
-effect on the alter's vaccination rates, while vaccination discordance has a negative effect on stay-at-home rates, where every one standard deviation increase in discordance lowers rates by
-`r broom.mixed::tidy(vacc_h3) %>% filter(term == 'vacc_assor') %>% pull(estimate) %>% round(3)`
-(_p_ <  0.001). The interaction between signal and signal discordance have a
-coefficient of a similar magnitude, with every one standard deviation increase
-in discordance _and_ signal resulting in
-`r broom.mixed::tidy(google_h3) %>% filter(term == 'vacc_signal:vacc_assor') %>% pull(estimate) %>% round(3)` 
-lower rates of vaccination. Figure \@ref(fig:plot-vacc-h3) illustrates this
-relationship, where there is slight moderation of the effect on vaccine signal
-on vaccination rates. If a county receives consistently high signals, they are
-more likely to have more residents vaccinated. If a county receives high but
-inconsistent signals, they are still decently likely to raise vaccination rates
-but to a lesser extent. While not as strong of moderation the the findings for Stay-at-Home Rates with hypothesis 3, I also reject the null hypothesis and find a moderation of the relationship between signal direction and vaccine uptake by diversity in signals (discordance).
 
+Table \@ref(tab:vacc-tab) model 2 tests the hypothesis 2 that increase vaccine
+uptake by alters will have a positive effect on vaccine uptake for the
+ego-county. The results are incredibly clear: seeing alter counties receiving
+vaccines is associated with higher vaccination rates. Specifically, a 1 standard
+deviation increase in vaccine signal, the average rate of vaccination of a
+county's alters, is associated with a 
+`r broom.mixed::tidy(vacc_h2) %>% filter(term == 'vacc_signal') %>% pull(estimate) %>% round(3)` 
+percent increase of vaccination rates for the ego county. The strength of this
+result leads me to reject the null hypothesis for hypothesis 2 and find that
+increased average time spent in residence (signal direction) from alters will
+have a positive effect on time spent in residence for the ego-county. The
+interaction of vaccine signal can be seen in Figure \@ref(fig:plot-vacc-h2).
+While the interaction is not as extreme as the results for Hypothesis 2 for
+Stay-at-Home rates, there is still a distinction between high and low
+vaccination signals over time. The slope for Higher Vaccination Signal is less
+pronounced than Low Vaccination Signal. This is likely an artifact where some
+counties vaccinated broadly early on, so their vaccination rate stays rather
+constant in later weeks. However, overall, the message is clear: ego-counties
+who 'see' high levels of vaccinations among their alters have higher vaccination
+rates; those who don't see that social norm forming are much less likely to
+vaccinate.
 ```{r plot-vacc-h3}
 #|  dependson=c('plot_options','vacc_models'),
 #|  cache = TRUE,
@@ -1314,9 +1317,31 @@ ggplot(aes(x = x, y = predicted, color = group, fill = group)) +
        fill = "Vaccination\nDiscordance",
        color = "Vaccination\nDiscordance") +
   scale_fill_manual(values=my_palette[c(2,5,8)]) +
-  scale_color_manual(values=my_palette[c(2,5,8)]) 
+  scale_color_manual(values=my_palette[c(2,5,8)]) +
+  coord_cartesian(ylim=c(0,3), xlim=c(0,3)) +
+  theme_diss()
 
 ```
+
+Table \@ref(tab:vacc-tab) Model 3 then models the moderation of signal direction
+for vaccine uptake by diversity in signals (_Discordance_). This is a second
+test of Hypothesis 3, that the effect of signal direction on vaccine uptake will
+be moderated by diversity in signals. The coefficients in model 3 are largely
+largely consistent with model 2 and there is very little change in the magnitude
+or significance of the coefficients. Vaccination signal maintains to have a positive
+effect on the alter's vaccination rates, while vaccination discordance has a negative effect on stay-at-home rates, where every one standard deviation increase in discordance lowers rates by
+`r broom.mixed::tidy(vacc_h3) %>% filter(term == 'vacc_assor') %>% pull(estimate) %>% round(3)`
+(_p_ <  0.001). The interaction between signal and signal discordance have a
+coefficient of a similar magnitude, with every one standard deviation increase
+in discordance _and_ signal resulting in
+`r broom.mixed::tidy(google_h3) %>% filter(term == 'vacc_signal:vacc_assor') %>% pull(estimate) %>% round(3)` 
+lower rates of vaccination. Figure \@ref(fig:plot-vacc-h3) illustrates this
+relationship, where there is slight moderation of the effect on vaccine signal
+on vaccination rates. If a county receives consistently high signals, they are
+more likely to have more residents vaccinated. If a county receives high but
+inconsistent signals, they are still decently likely to raise vaccination rates
+but to a lesser extent. While not as strong of moderation the the findings for Stay-at-Home Rates with hypothesis 3, I also reject the null hypothesis and find a moderation of the relationship between signal direction and vaccine uptake by diversity in signals (discordance).
+
 
 # Conclusion
 
@@ -1326,6 +1351,9 @@ this is so critical, rewrite to be less critical
 purpose of paper  
 
 main finding  
+
+- I might have more discussion about how the findings regarding stay-at-home rates are similar to / differ from those regarding vaccination rates. Why might we see the differences in estimates that we see across the two outcomes? An explicit comparison of how the control variables differ across the two outcomes could also be interesting to see.
+
 
 limitations  
 
