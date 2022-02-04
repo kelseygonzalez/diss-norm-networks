@@ -74,7 +74,7 @@
             <text prefix="(" suffix=")" variable="URL"/>
           </group>
         </if>
-        <else-if type="article-journal report" match="any">
+        <else-if type="article-journal report incollection" match="any">
           <text variable="DOI" prefix="doi: "/>
         </else-if>
       </choose>

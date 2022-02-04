@@ -28,6 +28,8 @@ indent: true
 ```{r setup}
 #| include=FALSE
 
+options(scipen=999)
+
 knitr::opts_chunk$set(echo = FALSE, 
                       message = FALSE,
                       warning = FALSE,
@@ -45,7 +47,7 @@ knitr::opts_chunk$set(echo = FALSE,
 pacman::p_load(tidyverse, here, nlme, 
                sjPlot, ggeffects, patchwork, ggridges,
                glue, modelsummary, showtext, thematic, broom.mixed,
-               kableExtra, scales, tikzDevice)
+               kableExtra, scales, network, sna, GGally)
 
 count_to_state <- read_csv("https://raw.githubusercontent.com/kjhealy/fips-codes/master/county_fips_master.csv") %>% 
   mutate(FIPS = str_pad(fips, 5, pad = "0")) %>% 
@@ -141,22 +143,16 @@ vacc_raw <- read_csv(here("data", "vacc_main.csv"), show_col_types = FALSE)  %>%
 
 # Abstract
 
-This article researches the formation of social norms governing health behaviors
-in cases of extreme uncertainty using the cases of both a) population mobility
-during early 2020 and b) vaccination rates during early 2021, both as responses
-to public health recommendations to mitigate the Covid-19 pandemic. Using
-theories of complex contagion, associative diffusion and the integrated
-theoretical framework of norms, I test how these health behaviors are outcomes
-of contagion and discordance of signals, and other
-factors affecting associations like religious and political conservatism, and
-attention to television media sources, and online norms as measured by
-information-search behaviors. The data for this article derives from a unique
-longitudinal data set that I compiled from Google, the CDC, Facebook and other
-sources. To model mobility and vaccination rates, I linear mixed effects models
-with random effects as a longitudinal model of contagion.
+This paper examines how social norms are formed under conditions of uncertainty
+using the case studies of stay-at-home and vaccination rates during the
+Covid-19 pandemic.  I test fear-based models of behavioral adaption to public
+health recommendations as well as patterns of complex social contagion using 
+linear mixed effects models with random effects. I show that complex contagion 
+is a valid framework for the social contagion of new norms during Covid-19 but
+also find a moderating effect of signal discordance, the contextual diversity of 
+signals received by an ego. 
 
-
-Keywords: Social Networks, Social Norms, Health Behavior
+Keywords: Social Networks, Social Norms, Health Behavior, Diffusion, Contagion
 
 
 \newpage
@@ -171,18 +167,6 @@ attention is the call to stay-at-home and social distance for non-essential
 workers. CDC officials and frontline health care professionals advise that the
 best way to prevent exposure to the virus is to stay at home and avoid close
 contact with people.
-
-<!-- TODO -->
-to cite:
-
-- [@wimmerDomainsDiffusionHow2021]
-- vaccine misinformation [@mottaRepublicansNotDemocrats2021; @mottaIdentifyingPrevalenceCorrelates2021]
-
-- Association Between What People Learned About COVID-19 Using Web Searches and Their Behavior Toward Public Health Guidelines: Empirical Infodemiology Study [@akpanAssociationWhatPeople2021]
-
-- Politicization of Science in the Public Sphere: A Study of Public Trust in the United States, 1974 to 2010 [@gauchatPoliticizationSciencePublic2012]
-
-- cite @gibbons_etal21 ; social capital can encourage and discourage distancing
 
 A second strategy pushed by the CDC, once available, was to receive vaccination
 to prevent the effects of the Covid-19 virus if infected. Vaccinations like
@@ -203,28 +187,50 @@ different social interactions and norms and shape how they adopt different
 policies, leading to different social outcomes and a divergence of attitudes 
 [@scottarthur_etal21; @williams95; @madeira_etal18].
 
-There is little research on shelter-in-place or stay-at-home rates, especially
-during pandemics or disasters. Though research on the causes of population
-mobility (how much a community leaves their homes) did expand after the onset of
-the Covid-19 pandemic [@bargainTrustCompliancePublic2020;
+There is little research on stay-at-home rates, especially in cases of pandemics or
+disasters. Though research on the causes of population mobility did expand after
+the onset of the Covid-19 pandemic [@bargainTrustCompliancePublic2020;
 @bourassaStatelevelStayathomeOrders2020; @bourassaSocialDistancingHealth2020;
 @grossmanPoliticalPartisanshipInfluences2020;
 @haggerPredictingSocialDistancing2020; @hillBloodChristCompels2020;
 @hillNastiestQuestionDoes2021; @hillLoveThyAged2021;
 @huynhDoesCultureMatter2020], most research focused on unchanging cultural
-determinants of the reduction in mobility. Instead, this paper will focus on the
-dynamic nature of population mobility across population networks.
+determinants of the reduction in stay-at-home rates. For instance, @gibbons_etal21 
+finds that social capital had spatially inconsistent effects on stay-at-home rates. Instead of focusing on cultural relationships with stay-at-home rates, this paper will instead
+focus on the dynamic nature of population mobility across population networks.
 
 There is more research on vaccine uptake
 [@schmidBarriersInfluenzaVaccination2017] because of increased hesitancy and
-anti-vaccination movements over previous decades [@baumgaertnerInfluencePoliticalIdeology2018;
+anti-vaccination movements over previous decades
+[@baumgaertnerInfluencePoliticalIdeology2018;
 @hornseyDonaldTrumpVaccination2020; @johnsonOnlineCompetitionPro2020;
-@whiteheadHowCultureWars2020], even using methods such as social network
-analysis [@milaniVisualVaccineDebate2020]. However, using both population
-mobility and vaccine uptake provide an opportunity to conduct related but unique
-analyses of the establishment of social health norms. I will first cover the
-research on social networks and contagion before covering proposed mechanisms of
-the spread of mobility behavior and their respective hypotheses.
+@whiteheadHowCultureWars2020]. While some studies use social network analysis to
+study the discussions for an against vaccinations online
+[@milaniVisualVaccineDebate2020], vaccination rates are a great way to
+investigate the establishment of new social norms. First, vaccination uptake is
+measurable with stable information infrastructure and tracking and vaccination
+rates are varied across locations and time. Secondly, because vaccines have
+become politicized [@mottaRepublicansNotDemocrats2021;
+@mottaIdentifyingPrevalenceCorrelates2021], the social contagion effects can be
+studied.
+
+<!-- paper overview -->
+This article researches the formation of social norms governing health behaviors
+in cases of extreme uncertainty using the above cases. Using theories of complex
+contagion, associative diffusion and the integrated theoretical framework of
+norms, I test how these health behaviors are outcomes of contagion and
+discordance of signals, as well as other factors affecting associations like
+religious and political conservatism, and attention to television media sources,
+and online norms as measured by information-search behaviors. Before outlining
+my central hypotheses, I offer an overview of the current state of the social
+contagion literature. After that, I will outline how I compiled this unique
+longitudinal data set from Google, the CDC, Facebook and other sources and how I
+define and calculate signal and discordance, two key independent variables for
+this paper. To model stay-at-home and vaccination rates, I use linear mixed effects
+models with random effects as a longitudinal model of contagion. After
+interpreting the results of the models, I discuss the implications of these
+findings for the sociological understanding of social contagion and the
+formation of social norms.
 
 ## Mechanisms of meso-level behavioral contagion
 
@@ -280,9 +286,7 @@ according to this older model.
 
 (@) _Hypothesis 1_ Relatively higher local rates of infection will lead to increased time spent in residence and increase vaccination uptake
 
-
-
-### Complex Contagion and Discordance: 
+### Complex Contagion and Discordance
 @centolaComplexContagionsWeakness2007 theorize that simple contagions are not
 enough to spread behavioral change. Simple contagions are those in which only
 one point of contact is needed to receive contagion, like with infectious
@@ -294,9 +298,6 @@ exposures but the number of sources of exposure. In the case of behavioral
 contagion, this means that the behavior must be reinforced through witnessing
 multiple alters perform this behavior before contagion can take effect.
   
-  
-
-
 In the case of stay-at-home rates or vaccination rates, this theoretically means
 that a person exposed to many sources of the same signal (high, medium, low
 rates) will be more likely to adopt the behavior based on the reinforcement from
@@ -349,15 +350,15 @@ pandemic. This means that the stay-at-home or vaccination behavior themselves
 were not contagious, but the cognitive association of precisely what social
 distancing or vaccination uptake _meant_ were spreading between populations of
 individuals. Moreover, as @houghton20 outlines, diffusants - the things that are
-diffusing through a population, are not independent of each other. When we take
-into account the interdependence between different beliefs that are diffusing,
-such as Covid-19 is a hoax, social distancing saves lives, the Covid-19 includes
-a microchip to control your thoughts, and lockdown is against the rights
-guaranteed in the US constitution, we can imagine how these various diffusants
-become associated together into structures of belief through schemas of
-perception [@houghton20]. While this cognitive theory of cultural variation is
-difficult to test, the theory it supplies provides a solid framework for how
-behavioral norms formed during the pandemic.
+diffusing through a population, are not independent of each other
+[@mason_etal07]. When we take into account the interdependence between different
+beliefs that are diffusing, such as Covid-19 is a hoax, social distancing saves
+lives, the Covid-19 includes a microchip to control your thoughts, and lockdown
+is against the rights guaranteed in the US constitution, we can imagine how
+these various diffusants become associated together into structures of belief
+through schemas of perception [@houghton20]. While this cognitive theory of
+cultural variation is difficult to test, the theory it supplies provides a solid
+framework for how behavioral norms formed during the pandemic.
  
 ```{r norm-framework}
 #| fig.cap='Preliminary model of norm formation'
@@ -392,38 +393,19 @@ scientific ideologies which I theorize leads more religious counties to reject
 the stay-at-home order and vaccines [@evansReligionScienceEpistemological2008] because the associative
 diffusion places public health recommendations against realigious ideologies.
 Furthermore, as COVID-19 has become a politically polarizing issue, conservative
-ideology and a general mistrust of “big government” [@frank2007s] are likely to
-lead to resistance to the government and scientific guidance.
-
-
-
-
-# Objectives and Significance of the Study
-
-<!-- add to contribution - and integrate better into prose - use this to outline the goals and contributions of ht epaper before outlining how we will tackle these goals   
-new concept of discordance, 
-measurement of complex contagion, 
-meso-level networks -->
-
-This paper is an important contribution to a few different fields. It
-contributes to the literature on social influence and contagion, as social
-connectedness of counties will impact regional population mobility. Moreover,
-using a aggregated community-level analysis presents a unique test of the
-contagion literature. Finally, looking at the diffusion of high-risk health
-behaviors will be an important contribution to public health and social
-epedimiology.
-
-Unlike many observations of social networks that mediate between questions of
-influence and self-selection [@lewisSocialSelectionPeer2012], this project is
-unique because self-selection is a precondition to the natural experiment of the
-virus. I will control for various demographic differences in county, allowing
-for an isolation of behavioral change during the study period.
-
+ideology and a general mistrust of “big government” [@frank2007s;
+@gauchatPoliticizationSciencePublic2012] are likely to lead to resistance to the
+government and scientific guidance.
 
 # Data and Methods
-This article draws on two unique longitudinal datasets that I
-compiled for this analysis from sources like Facebook, Google, CDC, etc.
-<!-- TODO Finish this section -->
+This article draws on two unique longitudinal datasets that I compiled for this
+analysis from sources like Facebook, Google, CDC, and more. Because the
+different datasets were on different scales (individual, zip-code, county,
+state, designated market area) and time points (cross-sectional, longitudinal),
+there was extensive data wrangling that had to be done to prepare these data for
+statistical analysis. The steps taken to prepare each of the different model
+features and where the data was sourced from is therefore covered in the
+following sections before diving into modeling specifications.
 
 ## Stay at Home Rates
 ```{r google-desc-table}
@@ -490,8 +472,12 @@ variable represents percent change of time spent from Google Location History
 within geographic areas that Google has designated as a residential area. These
 data are aggregated to the county-level based on anonymized sets of data from
 users who have turned on the Location History setting, which is off by default.
-Google calculates the relative change in mobility in comparison to the median
-value of movement in the area for the same the corresponding day of the week,
+This means our sample is possibly skewed to people in the United States a) with
+a mobile phone, b) with a Google account, and c) with knowledge of how to
+synchronize their location history. Google has not made it clear whether there
+are any weights in place to correct for these biases. Google calculates the
+relative change in mobility in comparison to the median value of movement in the
+area for the same the corresponding day of the week,
 during the 5-week period Jan 3–Feb 6, 2020. As Google did not provide data on
 certain US counties if they did not have sufficient statistically significant
 levels of data, my final county sample is _n_ = `r google_raw %>% count(FIPS) %>% nrow()`
@@ -519,7 +505,6 @@ count_to_state %>%
   mutate(percent_missing = `FALSE` / (`FALSE` + `TRUE`)) %>% 
   arrange(-percent_missing)
 ```
-
 
 ## COVID vaccination uptake
 ```{r vacc-desc-table}
@@ -649,13 +634,13 @@ represents the weighted mean.
 discordance = \sqrt{\frac{\sum_{i=1}^nw_i(x_i-\bar{x}^*)^2}{\sum^n_{i=1}w_i}} (\#eq:signaldiscordance)
 \end{equation}
 
-Figure \@ref(fig:assortativity-vacc) provides a visualization of both network
-signal and signal discordance for April 26, 2021 for 7 selected counties
-^[Figures in this paper were all created using ggplot2 and patchwork [@pedersen;
-@wickham_etal; @wickham11] ]. While a county like Lake County, Ohio has low
-discordance meaning the signal of vaccination rate is reinforced, Navajo County,
-Arizona receives very diverse signals from their county-alters, negating any
-contagion effects.
+Figures \@ref(fig:assortativity-vacc) and \@ref(fig:discordance-network) provide
+a visualization of both network signal and signal discordance for April 26, 2021
+for 7 selected counties ^[Figures in this paper were all created using ggplot2
+[@wickham_etal; @wickham11], patchwork [@pedersen], and ggridges [@ggridges] ].
+While a county like Lake County, Ohio has low discordance meaning the signal of
+vaccination rate is reinforced, Navajo County, Arizona receives very diverse
+signals from their county-alters, negating any contagion effects.
 ```{r discordance_extra_data_load}
 
 sample = c("08003", '55057', '51059', '39085', 
@@ -749,20 +734,70 @@ plot1c/plot1d
 rm(list = c("plot1c_data"))
 
 ```
-```{r discordance-network}
-#| fig.cap='Visualization of how Network Signal and Discordance are Calculated (needs to be made more professional)',
-#| out.width="50%"
 
-knitr::include_graphics(here('figs/discordance_network_ugly.PNG'))
+
+\begin{figure}
+```{r discordancenetwork}
+#| out.width="50%", 
+#| fig.pos = "!H", 
+#| out.extra = ""
+
+vacc_disc <-  read_csv(here("data", "vacc_main.csv"), show_col_types = FALSE)  %>% 
+  select(FIPS, date, vacc_rate)  %>% 
+  mutate(week_num = as.numeric((date - lubridate::ymd("2020-12-28")) / 7)) %>% 
+  filter(date == lubridate::ymd("2021-04-26") - 7)
+
+net2  <- readr::read_tsv(here('data', 'social-connectedness', 'county_county.tsv') ) %>% 
+  mutate(scaled_sci = scaled_sci/1000000000) %>%
+  dplyr::filter(fr_loc == '53033') %>% 
+  select(user_loc, fr_loc, weights = scaled_sci) %>% 
+  mutate(group = cut_interval(weights, n = 5)) %>% 
+  group_by(group) %>% 
+  slice_sample(n = 2) %>%
+  ungroup() %>% 
+  select(-group) %>% 
+  filter(user_loc != fr_loc) 
+  
+
+net2_node <- vacc_disc  %>% 
+  semi_join(net2, by = c("FIPS" = "user_loc"))   %>% 
+  bind_rows(filter(vacc_disc, FIPS == '53033')) %>% 
+  mutate(vacc_rate = round(vacc_rate, 3),
+         `Node Type` = ifelse(FIPS == '53033', 'ego', 'alter'))
+
+net2 <-  net2 %>% 
+  semi_join(net2_node, by = c("user_loc" = "FIPS")) %>% 
+  mutate(weights = glue("w =\n{round(weights, 6))}"))
+
+  
+network2 <-  network(net2, matrix.type = "edgelist",
+              directed = TRUE,
+              vertices = net2_node)
+ggnet2(network2, 
+       label = TRUE, 
+       arrow.size = 12, 
+       arrow.gap = 0.1,
+       edge.label = 'weights',
+       edge.label.color = 'black',
+       # edge.size = "weights",
+       node.label = 'vacc_rate',
+       node.size = 20,
+       node.color = 'Node Type',
+       label.color = 'black',
+       label.size = 4, 
+       palette = c(ego = "#ee8577", alter = "#62929a"),
+       layout.exp = 0.5) +
+  theme(text = element_text(family="lora", size = 15))
+
 ```
-$$ w = \begin{bmatrix}0.0000026\\0.0000966\\0.0000523\\0.0001120\\\end{bmatrix},  
-x = \begin{bmatrix}17.4\\42.8\\24.6\\24.3\\\end{bmatrix} \longrightarrow
-\begin{matrix}
-\bar{x}, signal = 28.02007\\
-s, discordance = 7.391
-\end{matrix}
-$$
-
+  \begin{equation}
+    w = \begin{bmatrix}0.0000026\\0.0000966\\0.0000523\\0.0001120\\\end{bmatrix},  
+    x = \begin{bmatrix}17.4\\42.8\\24.6\\24.3\\\end{bmatrix} \longrightarrow
+    \begin{matrix} \bar{x}, signal = 28.02\\ s, discordance = 7.39 \end{matrix} 
+  \end{equation}
+  \caption{Visualization of how Network Signal and Discordance are Calculated}
+  (\#fig:discordancenetwork)
+\end{figure}
 
 ### Case Rate
 To estimate the concept of 'real threat of infection' in figure
@@ -835,8 +870,6 @@ in a range of research contexts and for use with survey data, voting data, and
 ecological data [@bailPrestigeProximityPrejudice2019;
 @reyesUsingInternetSearch2018; @scheitleGoogleInsightsSearch2011; 
 @stephens-davidowitzCostRacialAnimus2014; @swearingenGoogleInsightsSenate2014].
-
-
 
 ### Demographics
 
@@ -976,9 +1009,6 @@ vacc_h3 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over +
              correlation = corAR1(),
              control = lmeControl(opt = "optim"))
 # vacc_h3 <- read_rds("modeling_cache/vacc_h3.rds")
-
-
-
 ```
 
 My analytic strategy proceeds in four steps. In Tables
@@ -1096,7 +1126,7 @@ ego-county.
 
 ```{r plot-google-h2}
 #| dependson=c('plot_options','google_models'),
-#| cache = TRUE,
+#| cache = FALSE,
 #| fig.cap='Predicted Values of Stay at Home Rate by Movement Signal'
 
 pred2 <- ggpredict(google_h2, c("week_num", "movement_signal")) %>% as_tibble()
@@ -1116,8 +1146,6 @@ pred2 %>%
        color = "Movement Signal") +
   scale_fill_manual(values=my_palette[c(2,5,8)]) +
   scale_color_manual(values=my_palette[c(2,5,8)])
-
-
 ```
 
 However, this coefficient is inadequate alone because the effect varies over
@@ -1137,7 +1165,7 @@ In this case, the threat of the virus may have been more evident for
 individuals. 
 ```{r plot-google-h3}
 #| dependson=c('plot_options','google_models'),
-#| cache = TRUE,
+#| cache = FALSE,
 #| fig.cap='Predicted Values of Stay at Home Rate Moderated'
 
 pred3 <- ggpredict(google_h3, c("movement_signal", "movement_assor")) %>% as_tibble()
@@ -1251,7 +1279,7 @@ variable is controlled, in this case, those related to signal. Therefore, the
 results of hypothesis 1 are quite inconclusive.
 ```{r plot-vacc-h2}
 #| dependson=c('vacc_models'),
-#| cache = TRUE,
+#| cache = FALSE,
 #| fig.cap='Predicted Values of Vaccination Rate'
 
 
@@ -1298,7 +1326,7 @@ rates; those who don't see that social norm forming are much less likely to
 vaccinate.
 ```{r plot-vacc-h3}
 #|  dependson=c('plot_options','vacc_models'),
-#|  cache = TRUE,
+#|  cache = FALSE,
 #|  fig.cap='Predicted Values of Vaccination Rate'
 
 pred5 <- ggpredict(vacc_h3, c("vacc_signal", "vacc_assor")) %>% as_tibble()
@@ -1342,76 +1370,62 @@ more likely to have more residents vaccinated. If a county receives high but
 inconsistent signals, they are still decently likely to raise vaccination rates
 but to a lesser extent. While not as strong of moderation the the findings for Stay-at-Home Rates with hypothesis 3, I also reject the null hypothesis and find a moderation of the relationship between signal direction and vaccine uptake by diversity in signals (discordance).
 
-
-# Conclusion
-
-this is so critical, rewrite to be less critical
-
-
-purpose of paper  
-
-main finding  
-
-- I might have more discussion about how the findings regarding stay-at-home rates are similar to / differ from those regarding vaccination rates. Why might we see the differences in estimates that we see across the two outcomes? An explicit comparison of how the control variables differ across the two outcomes could also be interesting to see.
+<!-- - I might have more discussion about how the findings regarding stay-at-home -->
+<!-- rates are similar to / differ from those regarding vaccination rates. Why might -->
+<!-- we see the differences in estimates that we see across the two outcomes? An -->
+<!-- explicit comparison of how the control variables differ across the two outcomes -->
+<!-- could also be interesting to see. -->
 
 
-limitations  
 
-regardless of limitations, this is a contribution to x y z
-new concept of discordance, 
-measurement of complex contagion, 
-meso-level networks
+<!-- should probably interpret why vaccination is less moderated; could be type of model? -->
 
+# Discussion and Conclusion
 
-There are a few clear limitations to this study. This is sensitive to
-aggregation error and sampling error from who the mobility and social
-connectedness data is coming from. The aggregation errors are potentially linked
-to the assumption that the average mobility behavior of a county is a good
-representation of the diversity in movement behaviors within that county.
-However, aggregating the network data provides a unique network perspective that
-hasn't, to my knowledge, been explored. Sociological research has long debated
+This paper examines how social norms are formed under conditions of uncertainty
+using the case studies of stay-at-home rates and vaccination rates during the
+Covid-19 pandemic.  I test fear-based models of behavioral adaption to public
+health recommendations as well as patterns of complex social contagion. This
+article demonstrates that the establishment of social norms under patterns of
+uncertainty in my two cases do follow the theorized framework of complex
+contagion; however, I find a moderating effect of signal discordance to be an
+overlooked factor in theories of contagion.
+
+This study is sensitive to aggregation error and sampling error derived from the
+multiple big-data sources [@facebook20; @google2020]. The aggregation errors are
+potentially linked to the assumption that the average stay-at-home behavior of a
+county is a good representation of the diversity in behaviors within that
+county. If stay-at-home rates are normally distributed, this is a correct
+assumption to make; however, little is known about each county's underlying
+distribution of behaviors that lead to the aggregate measures. 
+
+Regardless of limitations, this article is a unique and compelling contribution
+to the academic study of social contagion and social norms. First, this article
+demonstrates that it is possible to link, at least at a community level,
+information search by individuals, social relationships, and observed health
+behaviors without being limited to self-report measures of perceptions,
+attitudes, or intentions about behavior. Sociological research has long debated
 about the agency of individuals and the social and institutional structure in
 which individuals are immersed. In this study, I aggregate beyond the individual
 case to explore overall patterns of movement which summarizes individual agency
 of movement together.
 
-Another limitation of this study is possible sampling error. This project draws
-on two big-data sources [@facebook20; @google2020]. While Facebook and Google
-do extract data from a large portion of the population, I must be mindful of the
-sampling issues involved in both data sets. The Facebook data is potentially
-biased by both a skew of who allows location permissions but also who has a
-Facebook account and has added their friends. While I have not found any
-research comparing the demographics of Facebook users to actual population
-(JK CHECK OUT [@bailey_etal18; @jones_etal13]), it
-is easy to theorize how it may over or underrepresent different subsets of the
-population in different areas [@salganikBitBitSocial2017 Section 2.3.6]. The friendship
-indicator should also be read critically, because some individuals add everyone
-they know as a friend, others add only close personal friends, and another
-subset of the population adds many people who they do not know offline
-[@courtoisSocialNetworkProfiles2012]. To my knowledge, there has been little research testing
-whether these friendships represent offline connections [@golder2007rhythms;
-@dunbar2016online]. In my case, however, the question of an online connection
-versus and offline connection is unimportant because the movement contagion
-could spread through online communication, offline communication, or simply
-shared news stories and informal knowledge networks [@kittsRethinkingSocialNetworks2020].
+This article also provides a new adaption of the theory of complex contagion
+using big data from the natural experiment of Covid-19. Because most studies of
+complex contagion utilize agent-based modeling or studies of social media
+[@aralExerciseContagionGlobal2017; @sprague_house17; @bond_etal12;
+@latane_etal94], combining measures of actual behavioral outcomes with data from
+social media websites provides a further test of ecological and external
+validity for the theory.
 
-The Google data must also be read critically because it is based on the
-geo-behavioral data collected through Google Maps from users who have turned on
-the Location History setting, which is off by default. This means our sample is
-skewed to people in the United States a) with a mobile phone, b) with a Google
-account, and c) with knowledge of how to synchronize their location history.
-These requirements likely mean that there mobility data is skewed to a younger,
-more affluent audience. Google has not made it clear whether their demographic
-biases in their location history data are weighted in some way to rebalance the
-data set so that it is representative
-[@wangForecastingElectionsNonrepresentative2015; @salganikBitBitSocial2017,
-Section 2.3.6]. It is therefore possible that the sampling bias may confound my
-results if the age distribution through a population is associated with mobility
-during COVID-19. Furthermore, Google has defined time spent in residential areas
-without much context or explanation for how they classify a residential area. In
-counties with a lot of vertical mobility (i.e. skyscrapers) where a residential
-area may overlap with a shopping mall, there is a much larger margin of error.
-
+Researchers of contagion and social networks should be interested in this study.
+My theory of discordance, or a diversity of signals received, is not found in
+the literature on complex contagion; complex contagion focuses on the number of
+reinforcing actors, while other theories focus on how different diffusants
+interact with each other [@houghton20; @goldbergSocialContagionAssociative2018;
+@mason_etal07]. Discordance, on the other hand, looks specifically at the
+context of the reinforcing actors among the other signals. This study finds that
+indeed the context of the signals matters for diffusion.
 
 
 \newpage
