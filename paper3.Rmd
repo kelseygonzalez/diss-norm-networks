@@ -1,0 +1,844 @@
+---
+title: "Article 3: Social Norms under Uncertain Times: A dynamic study of Stay-At-Home and Vaccination Rates During the Covid-19 Pandemic"
+author: "Kelsey Gonzalez"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+editor_options:
+  chunk_output_type: console
+output:
+  bookdown::pdf_document2: 
+    latex_engine: xelatex
+    number_sections: true
+  bookdown::word_document2: 
+    toc: true
+    reference_docx: StylesTemplate.docx
+header-includes:
+   - \usepackage{siunitx}
+   - \usepackage{setspace}
+   - \usepackage{dcolumn}
+   - \usepackage{longtable}
+   - \usepackage{caption}
+   - \usepackage{booktabs}
+   - \usepackage{placeins}
+   - \doublespacing
+csl: american-sociological-association.csl
+bibliography: "My Library.bib"
+indent: true
+---
+
+```{r setup}
+#| include=FALSE
+
+options(scipen=999)
+
+knitr::opts_chunk$set(echo = FALSE, 
+                      message = FALSE,
+                      warning = FALSE,
+                      cache = TRUE,
+                      fig.width = 6,
+                      fig.asp = 0.8,
+                      out.width = "80%",
+                      fig.align="center"
+                      )
+
+
+# knitr::opts_knit$get("rmarkdown.pandoc.to")
+
+pacman::p_load(tidyverse, here, nlme, 
+               sjPlot, ggeffects, patchwork, ggridges,
+               glue, modelsummary, showtext, thematic, broom.mixed,
+               kableExtra, scales, network, sna, GGally, MetBrewer)
+
+count_to_state <- read_csv("https://raw.githubusercontent.com/kjhealy/fips-codes/master/county_fips_master.csv") %>% 
+  mutate(FIPS = str_pad(fips, 5, pad = "0")) %>% 
+  select(FIPS, state_abbr)
+```
+
+```{r plot_options}
+#| cache = FALSE
+
+my_palette = c('#56b4e9','#999999','#E69F00','#009E73','#CC79A7','#0072B2','#D55E00','#E69F00')
+my_palette  <- c(MetBrewer::met.brewer(name = 'Cross', type = 'discrete'), '#555F61')
+
+## Automatically use showtext to render text
+font_add_google("Lora", "lora")
+showtext_auto()
+
+theme_diss <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) %+replace%
+    theme(
+      # Figure assembly
+      plot.title = element_text(family="lora",
+                                size = rel(1), 
+                                margin = margin(0,0,5,0), 
+                                hjust = 0),
+      plot.title.position = "plot",
+      plot.subtitle = element_text(family="lora",
+                                   size = rel(0.85)),
+      plot.caption = element_text(family="lora",
+                                  size = rel(0.70),
+                                  hjust = 1),
+      # Graphical Zones
+      panel.grid.minor = element_blank(),
+      panel.border = element_blank(),
+      # Axes
+      axis.title = element_text(family="lora", 
+                                size = rel(0.85)),
+      axis.text = element_text(family="lora", 
+                               size = rel(0.70)),
+      axis.line = element_line(color = "black", 
+                               arrow = arrow(length = unit(0.3, "lines"), 
+                                             type = "closed")),
+      # Legend
+      legend.title = element_text(family="lora",
+                                  size = rel(0.85)),
+      legend.text = element_text(family="lora", 
+                                 size = rel(0.70)),
+      legend.key = element_rect(fill = "transparent", 
+                                colour = NA),
+      legend.key.size = unit(1.5, "lines"),
+      legend.background = element_rect(fill = "transparent", 
+                                       colour = NA),
+      # Facetting 
+      strip.background = element_rect(fill = "#17252D",
+                                      color = "#17252D"),
+      strip.text = element_text(family="lora",
+                                size = rel(0.85), 
+                                color = "white", 
+                                margin = margin(5,0,5,0))
+    )
+}
+
+theme_set(theme_diss()) 
+
+```
+
+```{r load_google}
+## source("data-cleaning.R")
+google_raw <- read_csv(here("data",  "google_movement_main.csv"), show_col_types = FALSE)  %>% 
+  filter(!(FIPS %in% c('02020', '02090', '02122', '02170'))) %>% 
+  drop_na() %>%
+  select(FIPS, date, SAH, movement_assor, movement_signal, 
+         case_rate, p_white, p_college, income_med, perc_65_over, unemployed_rate, 
+         trump_votes_2016, evangelical_county, fox_news, 
+         social_dist_trend, covid_conspiracy
+          # p_black, p_hispanic, 
+         ) %>% 
+  mutate(week_num = as.numeric((date - lubridate::ymd("2020-03-02")) / 7))
+## map(google_raw, ~sum(is.na(.x)))
+```
+
+```{r load_vacc}
+## source("data-cleaning.R")
+vacc_raw <- read_csv(here("data",  "vacc_main.csv"), show_col_types = FALSE)  %>% 
+  select(FIPS, date, vacc_rate, vacc_signal, vacc_assor,
+         case_rate, p_white, p_college, 
+         perc_65_over, unemployed_rate, income_med, population,
+         trump_votes_2020, evangelical_county, 
+         fox_news, covid_19_vaccine, covid_conspiracy) %>% 
+  drop_na() %>% 
+    mutate(week_num = as.numeric((date - lubridate::ymd("2020-12-28")) / 7))
+## map(vacc_raw, ~sum(is.na(.x)))
+```
+
+
+## Abstract
+
+
+## Background
+
+
+### The Social Contagion Model
+
+(@) _Hypothesis 1_
+
+
+(@)  _Hypothesis 2_ 
+
+(@)  _Hypothesis 3_
+
+```{r dag}
+#| fig.cap='Elaboratory Theoretical Model of Health Behavior Norms',
+#| fig.width = 5
+
+knitr::include_graphics(here('figs/paper3/dag.png'))
+```
+
+### Associative Diffusion
+
+ 
+```{r norm-framework}
+#| fig.cap='Preliminary model of norm formation'
+
+knitr::include_graphics(here('figs/paper3/model.png'))
+```
+
+
+## Data and Methods
+
+
+### Stay at Home Rates
+```{r google-desc-table}
+#| results = "asis"
+
+counties <- google_raw %>% count(FIPS) %>% pull(FIPS)
+google_dates <- google_raw %>% count(date) %>% pull(date)
+
+datasummary(formula = (`Percent White` = p_white)  +
+              (`Percent College Graduates` = p_college) +
+              (`Percent over 65` = perc_65_over) +
+              (`Median Income` = income_med) +
+              (`Monthly Unemployment Rate` = unemployed_rate) +
+              (`Percent of GOP votes, 2016` = trump_votes_2016) +
+              (`Percent Evangelical Christian` = evangelical_county) +
+              (`'Fox News' Trend` = fox_news) +
+              (`'Social Distancing' Trend` = social_dist_trend) +
+              (`'Covid Conspiracy' Trend` = covid_conspiracy) +
+              (`Covid Case Rate` = case_rate) +
+              (`Week Number` = week_num) +
+              (`Movement Signal` = movement_signal) +
+              (`Movement Discordance` = movement_assor)  ~ 
+              min + max + mean + sd, 
+            data = google_raw,
+            title = 'Descriptive Statistics for Stay-at-Home Models (county-level)',
+            notes =c(glue("Notes: {format(length(counties), nsmall=1, big.mark=',')} counties, {format( min(google_dates), '%B %d')} through {format(max(google_dates), '%B %d')}, 2020."),
+                     "Raw values presented in table. Values in models are normalized.")) %>%
+  kable_styling(latex_options = c( "hold_position", "condensed"))
+
+```
+```{r plot-google}
+#| cache = TRUE,
+#| fig.cap = "Stay at Home Rates over Time"
+
+
+vroom::vroom(here("data", "covid-mobility", "2020_US_Region_Mobility_Report.csv"), show_col_types = FALSE)  %>%
+  drop_na(census_fips_code) %>% 
+  select(date, FIPS = census_fips_code, SAH = residential_percent_change_from_baseline) %>% 
+  filter(!is.na(FIPS)) %>%
+  complete(date, FIPS)  %>% 
+  group_by(FIPS) %>%
+  mutate(sumNA = sum(ifelse(is.na(SAH), 1, 0))) %>% 
+  filter(sumNA < 200) %>% 
+  fill(SAH, .direction = 'downup') %>%
+  filter(!is.na(SAH)) %>% 
+  mutate(SAH = zoo::rollmean(SAH, k = 7, fill = "extend"))  %>% 
+  ggplot(aes(x=date, y=SAH)) +
+  geom_line(aes(group=FIPS), color = tail(my_palette, n=1), alpha = .6) + 
+  geom_smooth(color = my_palette[7]) +
+  labs(caption = 'Data from the Google Community Mobility Report',
+       x = '2020 Date', 
+       y = 'Stay-at-Home Rate, Percent change from baseline') 
+
+```
+..., my final county sample is _n_ = `r google_raw %>% count(FIPS) %>% nrow()`
+(compared to the tot,...
+
+```{r}
+#| include = FALSE,
+#| eval = FALSE
+
+included = google_raw %>% count(FIPS) %>% pull(FIPS)
+count_to_state %>% 
+  mutate(in_data = ifelse(FIPS %in% included, TRUE, FALSE)) %>% 
+  count(state_abbr, in_data) %>%
+  pivot_wider(id_cols = state_abbr,
+              names_from = in_data,
+              values_from = n,
+              values_fill = 0) %>%
+  mutate(percent_missing = `FALSE` / (`FALSE` + `TRUE`)) %>% 
+  arrange(-percent_missing)
+```
+
+### COVID vaccination uptake
+```{r vacc-desc-table}
+#| results = "asis"
+
+
+counties <- vacc_raw %>% count(FIPS) %>% pull(FIPS)
+vacc_dates <- vacc_raw %>% count(date) %>% pull(date)
+
+datasummary(formula = (`Percent White` = p_white)  +
+              (`Percent College Graduates` = p_college) +
+              (`Percent over 65` = perc_65_over) +
+              (`Median Income` = income_med) +
+              (`Monthly Unemployment Rate` = unemployed_rate) +
+              (`Percent of GOP votes, 2020` = trump_votes_2020) +
+              (`Percent Evangelical Christian` = evangelical_county) +
+              (`'Fox News' Trend` = fox_news) +
+              (`'Covid-19 vaccine' Trend` = covid_19_vaccine) +
+              (`'Covid Conspiracy' Trend` = covid_conspiracy) +
+              (`Covid Case Rate` = case_rate) +
+              (`Week Number` = week_num) +
+              (`Vaccination Signal` = vacc_signal) +
+              (`Vaccination Discordance` = vacc_assor)  ~ 
+              min + max + mean + sd, 
+            data = vacc_raw,
+            title = 'Descriptive Statistics for Vaccination Models (county-level)',
+            notes = c(glue("Notes: {format(length(counties), nsmall=1, big.mark=',')} counties, {format( min(vacc_dates), '%B %d')} through {format(max(vacc_dates), '%B %d')}, 2021."),"Raw values presented in table. Values in Models are normalized.")) %>%
+  kable_styling(latex_options = c("hold_position", "condensed"))
+```
+```{r plot-vacc}
+#| cache = TRUE ,
+#| fig.cap = "Vaccination Rates over Time"
+
+vroom::vroom(here("data", "vaccination-rates", "COVID-19_Vaccinations_in_the_United_States_County.csv"), show_col_types = FALSE) %>% 
+  mutate(date = lubridate::mdy(Date, quiet = TRUE)) %>% 
+  select(FIPS, date, vacc_rate = Series_Complete_Pop_Pct) %>% 
+  left_join(count_to_state, by = "FIPS") %>% 
+  filter( ! (state_abbr %in% c("HI", "TX")),
+          ! (FIPS %in% c('25001', '25007', '25019')),
+          ! (FIPS %in% c("06003","06027", "06043", "06049", "06051", "06063", "06091", "06105")),
+          (FIPS != 'UNK')) %>% 
+  complete(date, FIPS)  %>% 
+  group_by(FIPS) %>%
+  mutate(vacc_rate = zoo::rollmean(vacc_rate, k = 7, fill = NA)) %>% 
+  ggplot(aes(x=date, y=vacc_rate)) +
+  geom_line(aes(group=FIPS), color = tail(my_palette, n=1), alpha = .6) + 
+  geom_smooth(color = my_palette[7]) +
+  labs(caption = 'Data from the CDC',
+       x = '2021 Date', 
+       y = 'Vaccination Rate')
+
+```
+
+... my final county sample for vaccination rates is _n_ = `r vacc_raw %>% count(FIPS) %>% nrow()` 
+(compared t...
+
+### Independent Variables
+
+#### Network Signal
+
+\begin{equation}
+signal = \frac{\sum_{i=1}^nw_ix_i}{\sum^n_{i=1}w_i} (\#eq:networksignal)
+\end{equation}
+
+#### Signal Discordance
+
+\begin{equation}
+discordance = \sqrt{\frac{\sum_{i=1}^nw_i(x_i-\bar{x}^*)^2}{\sum^n_{i=1}w_i}} (\#eq:signaldiscordance)
+\end{equation}
+
+```{r discordance_extra_data_load}
+
+sample = c("08003", '55057', '51059', '39085', 
+           # '36119',
+           '34021', '12071', '04017' )
+
+sci <- readr::read_tsv(here('data', 'social-connectedness', 'county_county.tsv') ) %>% 
+  mutate(scaled_sci = scaled_sci/1000000000) %>%
+  filter(scaled_sci > 0.00001)
+
+count_to_state <- read_csv("https://raw.githubusercontent.com/kjhealy/fips-codes/master/county_fips_master.csv") %>% 
+  mutate(FIPS = str_pad(fips, 5, pad = "0"),
+        name = paste0(county_name,", " ,state_abbr)) %>% 
+  select(FIPS, name)
+```
+```{r assortativity-vacc}
+#| dependson=c('load_vacc','discordance_extra_data_load'),
+#| cache = TRUE,
+#| fig.cap = 'How Signal Mean and Signal Assortativity are Measured',
+#| out.width="70%",
+#| fig.asp = 1.5
+
+plot1c_data <- vacc_raw %>% 
+  dplyr::filter(date == lubridate::ymd("2021-04-26")) %>%
+  left_join(count_to_state, by = "FIPS") %>% 
+  mutate(name = ifelse(FIPS %in% sample, name, NA_character_),
+         size= ifelse(FIPS %in% sample, 2, 1),
+         alpha= ifelse(FIPS %in% sample, 1, .5)) 
+
+plot1c <- ggplot() + 
+  #background points)
+  geom_point(data = filter(plot1c_data, is.na(name)), 
+             aes(x = vacc_signal, y = vacc_assor), 
+             size = 1,
+             alpha = .25,
+             color = 'grey') + 
+  #highlighted points
+  geom_point(data = filter(plot1c_data, !is.na(name)), 
+             aes(x = vacc_signal, y = vacc_assor, color = fct_reorder(name,vacc_assor)),
+             size = 4,
+             alpha = 1) +
+  geom_text(data = filter(plot1c_data, !is.na(name)),
+            aes(x = vacc_signal, 
+                y =vacc_assor, 
+                label =  fct_reorder(name,vacc_assor),
+                color =  fct_reorder(name,vacc_assor)), 
+            size = 3,
+            vjust = -1,
+            hjust = -0.15) + 
+  theme(legend.position = 'none') +
+  scale_fill_manual(values=my_palette[1:7]) +
+  scale_color_manual(values=my_palette[1:7]) +
+  labs(title = 'Scatterplot of Signals and Discordance with 7 counties highlighted',
+       x = 'Vaccination Signals for 04-26-2021', y = 'Signal Discordance')
+
+plot1d_data <- tibble(FIPS = sample, date = lubridate::ymd("2021-04-26")) %>% 
+  dplyr::mutate(date_lag = date - 7) %>% 
+  dplyr::left_join(sci, by = c("FIPS" = "user_loc")) %>%     
+  dplyr::inner_join(select(vacc_raw, date, FIPS, vacc_rate), by = c(c("fr_loc" = "FIPS"),
+                                       c("date_lag" = "date"))) %>%
+  left_join(count_to_state, by = "FIPS") %>% 
+  left_join(select(vacc_raw, FIPS, date, vacc_signal, vacc_assor), by = c('date', 'FIPS'))
+
+plot1d <- plot1d_data %>% 
+  mutate(name = fct_reorder(name, vacc_assor)) %>% 
+  filter(FIPS != fr_loc) %>% 
+  ggplot() + 
+  geom_density_ridges(aes(x = vacc_rate, y = name, fill = name, weight = scaled_sci,
+                          height=..density..), 
+                      alpha = 0.5, show.legend = FALSE, color = NA,
+                      stat='density') +
+  geom_segment(aes(x = (vacc_signal - vacc_assor) , 
+                   xend = (vacc_signal + vacc_assor),
+                   y = name, 
+                   yend = name), lineend = 'butt', size = 2,
+               show.legend = FALSE, alpha = 0.6, color = '#4c4c4c') +
+  geom_point(aes(x = vacc_signal, y = name, color = name), 
+             size = 3, show.legend = FALSE) +
+  geom_point(aes(x = vacc_signal, y = name), size = 1, 
+             color = '#4c4c4c', show.legend = FALSE, alpha = 0.6) +
+  labs(x = 'Vaccination Signals for 04-26-2021', y = '',
+       title = 'Weighted Densities of Vaccination Signals per county with weighted average\nand standard deviation highlighted',
+       subtitle = 'Colored Point = Weighted average; Grey line = Weighted SD, i.e. Discordance',
+       caption = 'Densities Weighted by likelihood of Facebook Friendship connection')  +
+  scale_fill_manual(values=my_palette[1:7]) +
+  scale_color_manual(values=my_palette[1:7]) 
+  
+plot1c/plot1d
+
+
+rm(list = c("plot1c_data"))
+
+```
+
+
+\begin{figure}
+```{r discordancenetwork}
+#| out.width="50%", 
+#| fig.pos = "!H", 
+#| out.extra = ""
+
+vacc_disc <-  read_csv(here("data",  "vacc_main.csv"), show_col_types = FALSE)  %>%
+  select(FIPS, date, vacc_rate)  %>%
+  mutate(week_num = as.numeric((date - lubridate::ymd("2020-12-28")) / 7)) %>%
+  filter(date == lubridate::ymd("2021-04-26") - 7)
+
+net2  <- readr::read_tsv(here('data', 'social-connectedness', 'county_county.tsv') ) %>%
+  mutate(scaled_sci = scaled_sci/1000000000) %>%
+  dplyr::filter(fr_loc == '53033',
+                user_loc %in% c("51199", "20137", "53035", "53037", "53061")) %>%
+  select(user_loc, fr_loc, weights = scaled_sci) 
+  # mutate(group = cut_interval(weights, n = 5)) %>%
+  # group_by(group) %>%
+  # slice_sample(n = 2) %>%
+  # ungroup() %>%
+  # select(-group) %>%
+  # filter(user_loc != fr_loc)
+
+
+net2_node <- vacc_disc  %>%
+  semi_join(net2, by = c("FIPS" = "user_loc"))   %>%
+  bind_rows(filter(vacc_disc, FIPS == '53033')) %>%
+  mutate(vacc_rate = round(vacc_rate, 3),
+         `Node Type` = ifelse(FIPS == '53033', 'ego', 'alter'))
+
+net2 <-  net2 %>%
+  semi_join(net2_node, by = c("user_loc" = "FIPS")) %>%
+  mutate(weights = glue("w =\n{round(weights, 6)}"))
+
+
+network2 <-  network(net2, matrix.type = "edgelist",
+              directed = TRUE,
+              vertices = net2_node)
+ggnet2(network2,
+       label = TRUE,
+       arrow.size = 12,
+       arrow.gap = 0.1,
+       edge.label = 'weights',
+       edge.label.color = 'black',
+       # edge.size = "weights",
+       node.label = 'vacc_rate',
+       node.size = 20,
+       node.color = 'Node Type',
+       label.color = 'black',
+       label.size = 4,
+       palette = c(ego = "#ee8577", alter = "#62929a"),
+       layout.exp = 0.5) +
+  theme(text = element_text(family="lora", size = 15))
+
+```
+  \begin{equation}
+    w = \begin{bmatrix}0.0000015\\0.0000023\\0.0000527\\0.0000966\\0.0001119\end{bmatrix},  
+    x = \begin{bmatrix}29.9\\20.4\\27.7\\24.6\\24.3\end{bmatrix} \longrightarrow
+    \begin{matrix} \bar{x}, signal = 25.083\\ s, discordance = 1.41 \end{matrix} 
+  \end{equation}
+  \caption{Visualization of how Network Signal and Discordance are Calculated}
+  (\#fig:discordancenetwork)
+\end{figure}
+
+#### Covid-19 Case Rates
+
+#### Online Norms
+
+#### Pillars of Convervatism
+
+#### Demographics
+
+## Analysis and Results
+
+```{r google_models}
+#| dependson='load_google',
+#| cache = TRUE
+
+
+google <- google_raw %>% 
+  mutate(across(SAH:covid_conspiracy , ~ scale(.x, center=TRUE, scale=TRUE)))
+rm(list = c("google_raw"))
+
+google <- google %>% 
+  left_join(google %>%
+              group_by(FIPS) %>%
+              summarize(SAH_fips_mean = mean(SAH, na.rm = TRUE)),
+            by = "FIPS")
+
+google_h1 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over + 
+                  income_med + unemployed_rate +
+                  trump_votes_2016 + evangelical_county + 
+                 fox_news + social_dist_trend + covid_conspiracy +
+                  SAH_fips_mean + 
+                  case_rate + week_num,
+             random = ~ 1 | FIPS,
+             data = google,
+             correlation = corAR1(),
+             control = lmeControl(opt = "optim"))
+
+
+## write_rds(google_h1, here("data/modeling_cache/google_h1.rds"))
+## google_h1 <- read_rds("data/modeling_cache/google_h1.rds")
+
+google_h2 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over + 
+                  income_med + unemployed_rate +
+                  trump_votes_2016 + evangelical_county + 
+                 fox_news + social_dist_trend + covid_conspiracy +
+                  SAH_fips_mean + 
+                  case_rate +
+                  movement_signal*week_num,
+             random = ~ (1 + movement_signal) | FIPS,
+             data = google,
+             correlation = corAR1(),
+             control = lmeControl(opt = "optim"))
+## write_rds(google_h2, here("data/modeling_cache/google_h2.rds"))
+## google_h2 <- read_rds("data/modeling_cache/google_h2.rds")
+
+
+google_h3 <- lme(fixed = SAH ~ p_white + p_college + perc_65_over + 
+                  income_med + unemployed_rate +
+                  trump_votes_2016 + evangelical_county + 
+                 fox_news + social_dist_trend + covid_conspiracy +
+                  SAH_fips_mean + 
+                  case_rate +
+                  movement_signal*week_num +
+                  movement_signal*movement_assor,
+             random = ~ (1 + movement_signal) | FIPS,
+             data = google,
+             correlation = corAR1(),
+             control = lmeControl(opt = "optim"))
+## write_rds(google_h3, here("data/modeling_cache/google_h3.rds"))
+## google_h3 <- read_rds("data/modeling_cache/google_h3.rds")
+
+
+
+```
+```{r vacc_models}
+#| dependson='load_vacc',
+#| cache = TRUE
+
+
+## vacc %>% 
+##   select(where(is.numeric)) %>% 
+##   cor() %>%  
+##   round(2) %>%
+##   as.data.frame() %>% 
+##   tibble::rownames_to_column("row") %>%
+##   pivot_longer(cols = -row) %>% 
+##   ggplot(aes(x = row, y = name, fill = value)) + 
+##   geom_tile() + geom_text(aes(label = value)) + 
+##   theme(axis.text.x = element_text(angle = 45))
+
+vacc <- vacc_raw %>% 
+  mutate(across(vacc_rate:covid_conspiracy, ~(scale(.x, scale = TRUE, center = TRUE)))) 
+rm(list = c("vacc_raw"))
+
+vacc <- vacc %>% 
+  left_join(vacc %>%
+              group_by(FIPS) %>%
+              summarize(vacc_fips_mean = mean(vacc_rate, na.rm = TRUE)),
+            by = "FIPS")
+
+vacc_h1 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over + 
+                  income_med + unemployed_rate +
+                trump_votes_2020 + evangelical_county +
+                fox_news + covid_19_vaccine  + covid_conspiracy + vacc_fips_mean + 
+                case_rate + week_num,
+             random = ~ 1 | FIPS,
+             data = vacc,
+             correlation = corAR1(),
+             control = lmeControl(opt = "optim"))
+write_rds(vacc_h1, here("data/modeling_cache/vacc_h1.rds"))
+## vacc_h1 <- read_rds("data/modeling_cache/vacc_h1.rds")
+
+
+vacc_h2 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over + 
+                  income_med + unemployed_rate +
+                trump_votes_2020 + evangelical_county +
+                fox_news + covid_19_vaccine  + covid_conspiracy + vacc_fips_mean + 
+                case_rate + vacc_signal*week_num,
+             random = ~ (1 + vacc_signal) | FIPS,
+             data = vacc,
+             correlation = corAR1(),
+             control = lmeControl(opt = "optim"))
+## write_rds(vacc_h2, here("data/modeling_cache/vacc_h2.rds"))
+## vacc_h2 <- read_rds("data/modeling_cache/vacc_h2.rds")
+
+
+vacc_h3 <- lme(fixed = vacc_rate ~ p_white + p_college + perc_65_over + 
+                  income_med + unemployed_rate +
+                trump_votes_2020 + evangelical_county +
+                fox_news + covid_19_vaccine  + covid_conspiracy + vacc_fips_mean + 
+                case_rate + vacc_signal*week_num + vacc_signal*vacc_assor,
+             random = ~ (1 + vacc_signal) | FIPS,
+             data = vacc,
+             correlation = corAR1(),
+             control = lmeControl(opt = "optim"))
+## vacc_h3 <- read_rds("data/modeling_cache/vacc_h3.rds")
+```
+
+### Stay-at-Home Rate results
+```{r google-tab}
+#| dependson='google_models',
+#| cache = TRUE,
+#| results = 'asis' 
+
+google_labels = c(
+    'p_white'="Percent White",
+    'p_college' = "Percent College Graduates",
+    'perc_65_over' = "Percent over 65",
+    'income_med' = "Median Income",
+    'unemployed_rate' = "Monthly Unemployment Rate",
+    'trump_votes_2016' = "Percent of GOP votes, 2016",
+    'evangelical_county' = "Percent Evangelical Christian",
+    'fox_news' = "'Fox News' Trend",
+    'social_dist_trend' = "'Social Distancing' Trend",
+    'covid_conspiracy' = "'Covid Conspiracy' Trend",
+    'case_rate' = "Covid Case Rate",
+    'week_num' = "Week Number",
+    'SAH_fips_mean' = 'Stay at Home Rate, county mean',
+    'movement_signal' = "Signal",
+    'movement_signal:week_num' = "Signal x Week",
+    'movement_assor' = "Signal Discordance",
+    'movement_signal:movement_assor' = "Signal x Signal Discordance")
+
+modelsummary(list(google_h1, google_h2, google_h3),
+             title = "Linear Mixed Effects Regression Results for Stay-At-Home Rates",
+             notes= c('* p < .05. ** p < .01. *** p < .001 (two-tailed test).',
+                      'Model 1 includes a random intercept for FIPS,',
+                      'Models 2-3 include a random effect for Movement Signal by FIPS',
+                      glue('N = {scales::label_comma()(nobs(google_h1))}, N of random Effects = {google_h3$dims$ngrps[["FIPS"]]}')),
+             estimate = "{estimate}{stars}",
+             coef_map = google_labels,
+             gof_omit = 'AIC|BIC|ICC|RMSE'
+             ) %>%
+  kable_styling(latex_options = c("hold_position", 'condensed'),
+                font_size = 8)
+
+
+```
+
+...stay-at-home rates
+actually decreased by
+`r broom.mixed::tidy(google_h1) %>% filter(term == 'case_rate') %>% pull(estimate) %>% round(4)` (_p_ = `r broom.mixed::tidy(google_h1) %>% filter(term == 'case_rate') %>% pull(p.value) %>% round(3)`), 
+a very small and insignificant effect....
+
+
+.... own stay-at-home rate by
+`r broom.mixed::tidy(google_h2) %>% filter(term == 'movement_signal') %>% pull(estimate) %>% round(3)`
+(_p_ <  0.001). I am therefore able to reject my null...
+
+```{r plot-google-h2}
+#| dependson=c('google_models'),
+#| cache = FALSE,
+#| fig.cap='Predicted Values of Stay at Home Rate by Movement Signal'
+
+pacman::p_load(tidyverse, ggeffects)
+
+
+pred2 <- ggpredict(google_h2, c("week_num", "movement_signal")) %>% as_tibble()
+
+pred2 %>% 
+  mutate(group = case_when(group == 1 ~ "High",
+                           group == 0 ~ "Average",
+                           group == -1 ~ "Low"),
+         group = fct_relevel(group, c("Low", "Average", "High"))) %>% 
+  ggplot(aes(x = x, y = predicted, color = group, fill = group)) + 
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high),alpha = 0.5,color = NA) + 
+  geom_line() + 
+  labs(title='Interaction of Week Number by Movement Signal',
+       x = "Week Number", 
+       y = "Stay at Home Rate (Change from Baseline)",
+       fill = "Movement Signal", 
+       color = "Movement Signal") +
+  scale_fill_manual(values=my_palette[c(2,5,8)]) +
+  scale_color_manual(values=my_palette[c(2,5,8)])
+```
+
+```{r plot-google-h3}
+#| dependson=c('google_models'),
+#| cache = FALSE,
+#| fig.cap='Predicted Values of Stay at Home Rate Moderated'
+pacman::p_load(tidyverse, ggeffects)
+
+pred3 <- ggpredict(google_h3, c("movement_signal", "movement_assor")) %>% as_tibble()
+
+pred3 %>% 
+  mutate(group = case_when(group == 1 ~ "Discordance",
+                           group == 0 ~ "Average",
+                           group == -1 ~ "Concordance"),
+         group = fct_relevel(group, c("Discordance", "Average", "Concordance"))) %>% 
+  ggplot(aes(x = x, y = predicted, color = group, fill = group)) + 
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.5, color = NA) + 
+  geom_line() + 
+  labs(title='Interaction of Movement Signal by Movement Signal Discordance',
+       x = "Movement Signal",
+       y = "Stay at Home Rate (Change from Baseline)",
+       fill = "Movement Signal\nDiscordance",
+       color = "Movement Signal\nDiscordance") +
+  scale_fill_manual(values=my_palette[c(2,5,8)]) +
+  scale_color_manual(values=my_palette[c(2,5,8)]) 
+
+```
+... in discordance lowers stay-at-home rates by
+`r broom.mixed::tidy(google_h3) %>% filter(term == 'movement_assor') %>% pull(estimate) %>% round(3)` 
+(_p_ <  0.001). The interaction between signal and signal discordance have a
+coefficient of a similar magnitude, with every one standard deviation increase
+in discordance and signal resulting in
+`r broom.mixed::tidy(google_h3) %>% filter(term == 'movement_signal:movement_assor') %>% pull(estimate) %>% round(3)` 
+lower rates of time spent in residence,....
+
+### Vaccination Rate results
+```{r vacc-tab}
+#| dependson='vacc_models',
+#| cache = TRUE,
+#| results = 'asis' 
+
+vacc_labels = c(
+    'p_white'="Percent White",
+    'p_college' = "Percent College Graduates",
+    'perc_65_over' = "Percent over 65",
+    'income_med' = "Median Income",
+    'unemployed_rate' = "Monthly Unemployment Rate",
+    'trump_votes_2020' = "Percent of GOP votes, 2020",
+    'evangelical_county' = "Percent Evangelical Christian",
+    'fox_news' = "'Fox News' Trend",
+    'covid_19_vaccine' = "'Vaccine' Trend",
+    'covid_conspiracy' = "'Covid Conspiracy' Trend",
+    'case_rate' = "Covid Case Rate",
+    'week_num' = "Week Number",
+    'vacc_fips_mean' = 'Vaccination Rate, county mean',
+    'vacc_signal' = "Vaccination Signal",
+    'vacc_signal:week_num' = "Vaccination Signal x Week",
+    'vacc_assor' = "Vaccination Discordance",
+    'vacc_signal:vacc_assor' = "Vaccination Signal x Discordance")
+
+modelsummary(list(vacc_h1, vacc_h2, vacc_h3),
+             title = "Linear Mixed Effects Regression Results for Vaccination Rates",
+             notes= c('* p < .05. ** p < .01. *** p < .001 (two-tailed test).',
+                      'Model 1 includes a random intercept for FIPS,',
+                      'Models 2-3 include a random effect for Movement Signal by FIPS',
+                      glue('N = {scales::label_comma()(nobs(vacc_h1))}, N of random Effects = {vacc_h3$dims$ngrps[["FIPS"]]}')),
+             estimate = "{estimate}{stars}",
+             coef_map = vacc_labels,
+             gof_omit = 'AIC|BIC|ICC|RMSE')  %>%
+  kable_styling(latex_options = c("hold_position", 'condensed'),
+                font_size = 8)
+
+```
+
+.... every 1 standard deviation
+increase in county Covid-19 case rates is expected to yield a
+`r broom.mixed::tidy(vacc_h1) %>% filter(term == 'case_rate') %>% pull(estimate) %>% round(3)`
+decrease in vaccination rates. This may be due...
+```{r plot-vacc-h2}
+#| dependson=c('vacc_models'),
+#| cache = FALSE,
+#| fig.cap='Predicted Values of Vaccination Rate'
+
+
+pred4 <- ggpredict(vacc_h2, c("week_num", "vacc_signal")) %>% as_tibble()
+
+pred4 %>% 
+  mutate(group = case_when(group == 1 ~ "High",
+                           group == 0 ~ "Average",
+                           group == -1 ~ "Low"),
+         group = fct_relevel(group, c("Low", "Average", "High"))) %>% 
+ggplot(aes(x = x, y = predicted, color = group, fill = group)) + 
+  geom_ribbon(aes(ymin = conf.low,ymax = conf.high),alpha = 0.5,color = NA) + 
+    geom_line() + 
+  labs(title='Interaction of Week Number by Vaccination Signal',
+       x = "Week Number", 
+       y = "Percent Fully Vaccinated, scaled)",
+       fill = "Vaccination Signal", 
+       color = "Vaccination Signal") +
+  scale_fill_manual(values=my_palette[c(2,5,8)]) +
+  scale_color_manual(values=my_palette[c(2,5,8)]) +
+  theme_diss()
+```
+
+....the average rate of vaccination of a
+county's alters, is associated with a 
+`r broom.mixed::tidy(vacc_h2) %>% filter(term == 'vacc_signal') %>% pull(estimate) %>% round(3)` 
+percent increase of vaccination rates for the ego county. The strength of this
+result leads me to reject the null hypothesis for hypothesis 2 and find that
+increased average time spent....
+
+```{r plot-vacc-h3}
+#|  dependson=c('vacc_models'),
+#|  cache = FALSE,
+#|  fig.cap='Predicted Values of Vaccination Rate'
+
+pred5 <- ggpredict(vacc_h3, c("vacc_signal", "vacc_assor")) %>% as_tibble()
+
+pred5 %>% 
+  mutate(group = case_when(group == 1 ~ "Discordance",
+                           group == 0 ~ "Average",
+                           group == -1 ~ "Concordance"),
+         group = fct_relevel(as.factor(group), c("Discordance", "Average", "Concordance"))) %>% 
+ggplot(aes(x = x, y = predicted, color = group, fill = group)) + 
+  geom_ribbon(aes(ymin = conf.low,ymax = conf.high),alpha = 0.5,color = NA) + 
+  geom_line() + 
+  labs(title='Interaction of Vaccination Signal by Vaccination Discordance',
+       x = "Vaccination Signal",
+       y = "Vaccination Rate (in Percent)",
+       fill = "Vaccination\nDiscordance",
+       color = "Vaccination\nDiscordance") +
+  scale_fill_manual(values=my_palette[c(2,5,8)]) +
+  scale_color_manual(values=my_palette[c(2,5,8)]) +
+  coord_cartesian(ylim=c(0,3), xlim=c(0,3)) +
+  theme_diss()
+
+```
+.... increase in discordance lowers rates by
+`r broom.mixed::tidy(vacc_h3) %>% filter(term == 'vacc_assor') %>% pull(estimate) %>% round(3)`
+(_p_ <  0.001). The interaction between signal and signal discordance have a
+coefficient of a similar magnitude, with every one standard deviation increase
+in discordance _and_ signal resulting in `r broom.mixed::tidy(google_h3) %>% filter(term == 'vacc_signal:vacc_assor') %>% pull(estimate) %>% round(3)` 
+lower rates of vaccination. Figure \@ref(fig:plot-vacc-h3)....
+
+## Discussion and Conclusion
+
+\newpage
+
+# References {-}
+
+<div id="refs"></div>
+
+

@@ -320,6 +320,7 @@ weighted.sd <- function(x, wt, na.rm = TRUE) {
     wm <- weighted.mean(x, wt)
     sqrt(sum(wt * (x - wm)^2) / sum(wt))
 }
+
 weight_sd_move <- function(df) weighted.sd(df$SAH, wt = df$scaled_sci, na.rm = TRUE)
 
 overall_average_SAH <- google %>% 
